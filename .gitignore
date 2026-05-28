@@ -205,3 +205,86 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# =========================
+# LaTeX Build Files
+# =========================
+
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.fmt
+*.fot
+*.glo
+*.gls
+*.glsdefs
+*.idx
+*.ilg
+*.ind
+*.ist
+*.lof
+*.log
+*.lot
+*.nav
+*.out
+*.run.xml
+*.snm
+*.synctex.gz
+*.toc
+*.vrb
+*.xdv
+*.dvi
+*.ps
+*.acn
+*.acr
+*.alg
+*.glg
+*.maf
+*.mtc*
+*.nlo
+*.nls
+*.xdy
+
+# =========================
+# Latexmk / Arara
+# =========================
+
+_latexmk
+latexmkrc-local
+
+# =========================
+# Editor Files
+# =========================
+
+*.swp
+*.swo
+*~
+.DS_Store
+.vscode/
+.idea/
+
+# =========================
+# Python (if using notebooks/scripts)
+# =========================
+
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# =========================
+# Explicitly Keep Sources
+# =========================
+
+!*.tex
+!*.pdf
+!*.bib
+!*.cls
+!*.sty
+!*.bst
+!*.png
+!*.jpg
+!*.jpeg
+!*.svg
