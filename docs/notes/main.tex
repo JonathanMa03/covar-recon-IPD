@@ -1013,28 +1013,11 @@ The authors identify two broad classes of problems:
     \end{itemize}
 \end{itemize}
 
-
 \subsection*{Additional Challenge: Subgroup Reconstruction}
 
 Many oncology publications report overall KM curves and subgroup statistics but not subgroup specific KM curves (in example with PD-L1 high vs low) creating a non-identifiable problem.
 
-Multiple pat
-
-Multiple patient-level subgroup assignments may reproduce the same:
-
-\begin{itemize}
-    \item Hazard ratio.
-    \item Median overall survival.
-    \item Confidence interval.
-\end{itemize}
-
-Therefore:
-
-\begin{quote}
-There is no unique subgroup reconstruction.
-\end{quote}
-
-The paper emphasizes that this uncertainty must be quantified and propagated into downstream analyses.
+Multiple patient level subgroup assignments may reproduce the same HR or survival outcomes, so point identification is nullified. The paper emphasizes that this uncertainty must be quantified and propagated into downstream analyses.
 
 \subsection*{Overview of RESOLVE-IPD}
 
@@ -1042,124 +1025,34 @@ The framework consists of two major stages.
 
 \subsubsection*{Stage 1}
 
-High-fidelity IPD reconstruction.
-
-Modules:
-
-\begin{itemize}
-    \item VEC-KM.
-    \item CEN-KM.
-\end{itemize}
-
-Output:
-
-\[
-(T_i,\delta_i,A_i)
-\]
-
-where:
-
-\begin{itemize}
-    \item \(T_i\) = survival time.
-    \item \(\delta_i\) = event indicator.
-    \item \(A_i\) = treatment group.
-\end{itemize}
+High-fidelity IPD reconstruction through VEC-KM and CEN-KM, outputting \[(T_i,\delta_i,A_i)\] where \(T_i\) = survival time, \(\delta_i\) = event indicator, \(A_i\) = treatment group.
 
 \subsubsection*{Stage 2}
 
-Uncertainty-aware subgroup recovery.
-
-Module:
-
-\begin{itemize}
-    \item MAPLE.
-\end{itemize}
-
-Output:
-
-\[
-G_{\text{MAPLE}}
-\]
-
-a set of plausible subgroup label assignments.
-
-These outputs are then used for:
-
-\begin{itemize}
-    \item Meta-analysis.
-    \item RMST estimation.
-    \item Hazard-ratio estimation.
-    \item Survival comparison.
-\end{itemize}
+Uncertainty-aware subgroup recovery via MAPLE, outputting $G_{\text{MAPLE}}$, a set of plausible subgroup label assignments used for meta analysis, RMST/HR estimation, survival comparison.
 
 \subsection*{VEC-KM}
 
 \subsubsection*{Purpose}
 
-Reduce digitization error by extracting information directly from vector graphics.
-
-Instead of raster images, VEC-KM uses:
-
-\begin{itemize}
-    \item SVG files.
-    \item Native vector paths embedded in PDFs.
-\end{itemize}
-
-Because vector graphics contain exact drawing instructions, extraction is independent of image resolution.
+Reduce digitization error by extracting information directly from vector graphics. Instead of raster images, VEC-KM uses vector paths embedded in PDFs or SVG files. Because vector graphics contain exact drawing instructions, extraction is independent of image resolution.
 
 \subsubsection*{Advantages}
 
-Compared with pixel-based methods:
-
-\begin{itemize}
-    \item No manual calibration.
-    \item No rounding artifacts.
-    \item Higher coordinate precision.
-    \item Better censor-mark detection.
-\end{itemize}
-
-The paper reports precision up to six decimal places.
+Compared with pixel-based methods, there is no rounding artifacts, manual calibration. Higher coordinate precision (up to 6 decimnals) and censor mark detection as well.
 
 \subsubsection*{Core Steps}
-
-\paragraph{Step 1: KM Curve Extraction}
-
-Identify all line segments.
-
-Select the longest connected paths as candidate survival curves.
-
-\paragraph{Step 2: Axis Calibration}
-
-Locate x- and y-axes.
-
-Construct mappings between:
-
-\begin{itemize}
-    \item Pixel space.
-    \item Time.
-    \item Survival probability.
-\end{itemize}
-
-\paragraph{Step 3: Censor-Mark Detection}
-
-Identify remaining short vector segments.
-
-Classify them as censoring marks based on:
-
-\begin{itemize}
-    \item Shape.
-    \item Proximity to KM curves.
-\end{itemize}
-
-Each censor mark is projected onto the time axis to recover exact censoring times.
+\begin{enumerate}
+    \item KM Curve Extraction: Identify all line segments and select the longest connected paths as candidate curves
+    \item Axis Calibration: Locate x- and y- axes and construct maps between pixel space, time, and survival probability
+    \item Censor-Mark Detection: identify remaining short vector segments and classify them based on shape and proximity to KM curves
+\end{enumerate}
 
 \subsection*{CEN-KM}
 
 \subsubsection*{Purpose}
 
-Reconstruct IPD while explicitly incorporating censoring information.
-
-This replaces the traditional uniform-censoring assumption.
+Reconstruct IPD while explicitly incorporating censoring information. (Replaces uniform censoring assumption)
 
 \subsubsection*{Key Innovations}
 
@@ -1169,13 +1062,7 @@ Rather than estimating censoring indirectly, CEN-KM uses censoring times extract
 
 \paragraph{Overlapping Censor Marks}
 
-Clinical KM plots often contain overlapping censor symbols.
-
-A single visible mark may represent multiple censored patients.
-
-Existing methods generally ignore this phenomenon.
-
-CEN-KM explicitly models overlapping censor events.
+Clinical KM plots often contain overlapping censor symbols. A single visible mark may represent multiple censored patients, which existing methods tend to ignore.
 
 \subsubsection*{Algorithmic Strategy}
 
@@ -1191,245 +1078,68 @@ For each KM interval:
 
 \subsubsection*{Risk-Table Alignment}
 
-When a reported number-at-risk value is encountered:
-
-\begin{itemize}
-    \item Reconstructed risk sets are compared with published values.
-    \item Censor counts are adjusted.
-    \item Exact risk-table consistency is enforced.
-\end{itemize}
+When a reported number-at-risk value is encountered, reconstructed risk sets are compared with published values, censor counts are adjusted and exact risk-table consistency is enforced.
 
 \subsubsection*{Advantages}
 
-Compared with iKM:
-
-\begin{itemize}
-    \item Uses explicit censoring information.
-    \item Handles overlapping censors.
-    \item Corrects integer-rounding issues.
-    \item Produces more accurate survival curves.
-\end{itemize}
+Compared with iKM, this uses explicit censoring information and corrects floating point error, which produces more accurate curves.
 
 \subsection*{MAPLE}
 
 \subsubsection*{Purpose}
 
-Recover subgroup labels when subgroup KM curves are unavailable.
-
-MAPLE stands for:
-
-\begin{quote}
-Marginal Assignment of Plausible Subgroup Labels and Evidence Propagation
-\end{quote}
+Marginal Assignment of Plausible subgroup Labels and Evidence Propogation (MAPLE) attempts to recover subgroup labels when subgroup KM curves are unavailable.
 
 \subsubsection*{Key Idea}
 
-The paper explicitly rejects the idea of finding a single "correct" subgroup labeling.
+The paper explicitly rejects the idea of finding a single "correct" subgroup labeling: \[G_{\text{MAPLE}}=\{g :g \text{ satisfies published evidence}\}\]
+where \(g\) denotes a patient-level subgroup assignment and multiple solutions are allowed.
 
-Instead:
-
-\[
-G_{\text{MAPLE}}
-=
-\{
-g :
-g \text{ satisfies published evidence}
-\}
-\]
-
-where:
-
-\begin{itemize}
-    \item \(g\) denotes a patient-level subgroup assignment.
-    \item Multiple solutions are allowed.
-\end{itemize}
-
-Thus MAPLE characterizes a feasible set rather than a point estimate.
 
 \subsubsection*{Inputs}
 
-MAPLE uses:
-
-\begin{itemize}
-    \item Reconstructed overall IPD.
-    \item Published subgroup sample sizes.
-    \item Published hazard ratios.
-    \item Published median survival values.
-    \item Published confidence intervals.
-\end{itemize}
+MAPLE uses reconstructed overall IPD and published information (subgroup sample sizes, hazard ratios, median survival, confidence intervals).
 
 \subsubsection*{Optimization Objective}
 
-MAPLE searches for subgroup label assignments that reproduce:
-
-\[
-\tau^{tgt}
-\]
-
-where target quantities include:
-
-\begin{itemize}
-    \item Hazard ratios.
-    \item Median overall survival.
-    \item Confidence intervals.
-\end{itemize}
-
-Assignments minimizing reconstruction error are retained.
+MAPLE searches for subgroup label assignments that reproduce $\tau^{tgt}$ where target quantities are hazard ratios, medium survival, and confidence intervals. Assignments minimizing reconstruction error are retained.
 
 \subsubsection*{Refinement Using Low-Fidelity KM Curves}
 
-If subgroup KM curves exist only as raster images:
-
-\begin{itemize}
-    \item Approximate subgroup IPD are reconstructed.
-    \item Candidate labelings are filtered.
-\end{itemize}
-
-Only labelings whose subgroup KM curves remain within the reported uncertainty bands are retained.
-
-The refined set is denoted:
-
-\[
-G_{\text{MAPLE}}^*
-\]
+If subgroup KM curves exist only as raster images, approximate subgroup IPD is reconstructed and candidate labelings are filtered. The refined set is denoted $G_{\text{MAPLE}}^*$. 
 
 \subsubsection*{Interpretation}
 
-The output is not a single subgroup assignment.
-
-Instead:
-
-\[
-G_{\text{MAPLE}}
-=
-\{
-g_1,g_2,\ldots,g_M
-\}
-\]
-
-where every labeling is consistent with the available evidence.
-
-The resulting variability quantifies subgroup-reconstruction uncertainty.
+The output is not a single subgroup assignment. Instead: \[G_{\text{MAPLE}}=\{g_1,g_2,\ldots,g_M\}\] where every labeling is consistent with the available evidence. The resulting variability quantifies subgroup-reconstruction uncertainty.
 
 \subsection*{Deterministic vs Optimization Pathways}
 
-The paper distinguishes two subgroup-recovery pathways.
-
-\subsubsection*{Deterministic Pathway}
-
-Used when subgroup KM curves are available.
-
-Scenarios:
-
-\begin{enumerate}
-    \item Target subgroup KM curve exists directly.
-    \item KM subtraction can recover the missing subgroup.
-\end{enumerate}
-
-Produces the most reliable subgroup IPD.
-
-\subsubsection*{Optimization Pathway}
-
-Used when only aggregate subgroup summaries are available.
-
-Employs MAPLE.
-
-Produces an ensemble of plausible labelings.
-
-\subsection*{Evidence Propagation}
-
-A central theme of the paper is uncertainty propagation.
-
-Traditional reconstruction methods produce:
-
-\[
-\text{One reconstruction}
-\]
-
-and proceed as if it were truth.
-
-RESOLVE-IPD instead produces:
-
-\[
-G_{\text{MAPLE}}
-=
-\{
-g_1,\ldots,g_M
-\}
-\]
-
-and propagates uncertainty through all downstream analyses.
-
-Examples include:
-
+The paper distinguishes two subgroup-recovery pathways:
 \begin{itemize}
-    \item Hazard ratios.
-    \item RMST.
-    \item Meta-analysis.
-    \item Survival probabilities.
+    \item Deterministic: Used when subgroup KM curves are available, and produces most reliable subgroup IPD. Scenarios:
+    \begin{itemize}
+        \item Target subgroup KM curve exists directly.
+        \item KM subtraction can recover the missing subgroup.
+    \end{itemize}
+    \item Optimization: Used when only aggregate subgroup summaries are available, using MAPLE to produce an ensemble of plausible labelings
 \end{itemize}
-
-The authors argue this yields more honest inference.
 
 \subsection*{Esophageal Cancer Application}
 
-The framework is applied to advanced esophageal squamous cell carcinoma.
-
-Focus:
-
-\[
-\text{PD-L1 Low}
-\]
-
-population.
-
-Trials included:
-
-\begin{itemize}
-    \item KEYNOTE-181.
-    \item ATTRACTION-3.
-    \item ESCORT.
-    \item Additional immunotherapy studies.
-\end{itemize}
-
-Objectives:
-
-\begin{itemize}
-    \item Reconstruct subgroup survival data.
-    \item Estimate treatment effects.
-    \item Quantify uncertainty induced by subgroup reconstruction.
-\end{itemize}
+The framework is applied to advanced esophageal squamous cell carcinoma, with the focus on PD-L1 Low. Included trials are immunotherapy studies including KEYNOTE-181, ATTRACTION-3, and ESCORT.
+The goal is to reconstruct subgroup survival data, estimate treatment effects, and quantify uncertainty induced by reconstruction.
 
 \subsection*{Main Findings}
+VEC-KM produced highly accurate coordinate extraction, and vector-based extraction significantly reduced digitization error.
 
-\subsubsection*{VEC-KM}
+CEN-KM improved recovery of censoring patterns, which produced curves that closely matched KM plots.
 
-Produced highly accurate coordinate extraction.
+MAPLE successfully recovered multiple subgroup labelings and generated multiple data-compatible reconstructions.
 
-Vector-based extraction substantially reduced digitization error.
-
-\subsubsection*{CEN-KM}
-
-Improved recovery of censoring patterns.
-
-Produced survival curves that closely matched published KM plots.
-
-\subsubsection*{MAPLE}
-
-Successfully recovered plausible subgroup labelings.
-
-Generated multiple data-compatible reconstructions.
-
-Demonstrated substantial uncertainty in subgroup assignment.
 
 \subsubsection*{Meta-Analysis}
 
-After uncertainty propagation:
-
-\begin{itemize}
-    \item Immunotherapy showed benefit relative to chemotherapy.
-    \item Significant effects were particularly evident between 6 and 12 months.
-\end{itemize}
+After uncertainty propagation, immunotherapy showed benefit relative to chemotherapy. Significant effects were particularly evident between 6 and 12 months.
 
 \subsection*{Main Contributions}
 
@@ -1449,177 +1159,61 @@ After uncertainty propagation:
 \subsection*{Main Objective}
 
 The paper studies transportability when:
-
 \begin{itemize}
     \item Individual-level data are available from a source population.
     \item Only summary statistics of covariates are available from a target population.
 \end{itemize}
-
-The goal is to perform valid statistical inference for the target population despite the absence of target individual-level data.
-
-The authors focus on estimating population quantities in the target population while accounting for:
-
+The goal is to perform valid statistical inference for the target population despite the absence of target individual-level data. The authors focus on estimating population quantities in the target population while accounting for:
 \begin{enumerate}
     \item Covariate shift between source and target populations.
     \item Uncertainty in the reported target summary statistics.
 \end{enumerate}
-
 A major contribution of the paper is that it explicitly incorporates uncertainty from target summary statistics into transportability procedures.
 
 \subsection*{Motivation}
 
-Most existing transportability methods require:
-
-\begin{itemize}
-    \item Individual-level source data.
-    \item Individual-level target data.
-\end{itemize}
-
-Examples include:
-
-\begin{itemize}
-    \item Generalizability methods.
-    \item Inverse probability weighting.
-    \item Transportability weighting.
-    \item Doubly robust transport estimators.
-\end{itemize}
+Most existing transportability methods require both individual level source and target data. Example methods are inverse probability weighting or doubly robust transport estimators. 
 
 However, in many practical settings:
-
 \begin{itemize}
     \item Privacy regulations prohibit access to target individual-level data.
     \item Only aggregate demographic summaries are available.
     \item Registry data may provide means, proportions, and standard deviations rather than patient-level observations.
 \end{itemize}
-
 The paper addresses this setting directly.
 
 \subsection*{Framework}
 
 Let:
-
 \begin{itemize}
     \item \(Y\) denote the outcome.
     \item \(X\) denote covariates in the source population.
     \item \(Y^*\) denote the outcome in the target population.
     \item \(X^*\) denote covariates in the target population.
 \end{itemize}
-
-The parameter of interest is:
-
-\[
-\mu^*
-=
-E(Y^*)
-\]
-
-the mean outcome in the target population.
+The parameter of interest is $\mu^*=E(Y^*)$, the mean outcome in the target population.
 
 \subsection*{Covariate Shift Assumption}
 
-The paper assumes covariate shift.
-
-The target distribution satisfies:
-
-\[
-f^*(y,x)
-=
-f(y,x)w(x)
-\]
-
-where:
-
+The paper assumes covariate shift. The target distribution satisfies $f^*(y,x)=f(y,x)w(x)$ where:
 \begin{itemize}
     \item \(f(y,x)\) is the source joint distribution.
     \item \(f^*(y,x)\) is the target joint distribution.
     \item \(w(x)\) is a density-ratio function.
 \end{itemize}
 
-Interpretation:
-
-\begin{itemize}
-    \item Covariate distributions may differ.
-    \item Conditional outcome models remain unchanged.
-\end{itemize}
-
-Therefore:
-
-\[
-f^*(y|x)
-=
-f(y|x).
-\]
-
-The paper treats this as the fundamental transportability assumption.
+Covariate distributions may differ, and conditional outcome models remain unchanged, therefore $f^*(y|x)=f(y|x)$. This is the transportability assumption in the paper.
 
 \subsection*{Target Mean Representation}
 
-Under covariate shift:
+Under covariate shift:, $\mu^*=E\{w(X)Y\}$. This representation motivates weighting-based transport estimators. The problem therefore becomes estimating: \[w(x)=\frac{f^*(x)}{f(x)}.\]
 
-\[
-\mu^*
-=
-E\{w(X)Y\}.
-\]
-
-This representation motivates weighting-based transport estimators.
-
-The problem therefore becomes estimating:
-
-\[
-w(x)
-=
-\frac{f^*(x)}
-     {f(x)}.
-\]
-
-The difficulty is that:
-
-\begin{itemize}
-    \item Source individual-level covariates are observed.
-    \item Target individual-level covariates are unavailable.
-\end{itemize}
-
-Only target summary statistics are observed.
+The difficulty is that source individual level covariates are observed but target individual level covariates are unavailable.
 
 \subsection*{Available Information}
 
-The target population contributes:
-
-\[
-\bar{\Phi}^*
-=
-\frac{1}{m}
-\sum_{j=1}^{m}
-\Phi(X_j^*)
-\]
-
-where:
-
-\[
-\Phi(X)
-\]
-
-is a vector of known transformations of the covariates.
-
-Examples include:
-
-\begin{itemize}
-    \item Means.
-    \item Variances.
-    \item Higher-order moments.
-    \item Interaction summaries.
-\end{itemize}
-
-Only these summaries are available.
-
-The raw observations:
-
-\[
-X_1^*,\ldots,X_m^*
-\]
-
-are not observed.
+The target population contributes:\[\bar{\Phi}^*=\frac{1}{m}\sum_{j=1}^{m}\Phi(X_j^*)\] where $\Phi(X)$ is a vector of known transformations of the covariates (usually moments or interaction summaries).
+The raw observations $X_1^*,\ldots,X_m^*$ are not observed.
 
 \subsection*{Entropy Balancing Transportability}
 
@@ -1627,431 +1221,155 @@ The first proposed approach extends entropy balancing to the transportability se
 
 \subsubsection*{Core Idea}
 
-Construct weights:
-
-\[
-w_i
-\]
-
-for source observations such that:
-
-\[
-\sum_{i=1}^{n}
-w_i \Phi(x_i)
-=
-\bar{\Phi}^*.
-\]
-
-Thus the weighted source moments exactly match target moments.
+Construct weights $w_i$ for source observations such that: \[\sum_{i=1}^{n}w_i \Phi(x_i)=\bar{\Phi}^*.\] so the weighted source moments exactly match target moments.
 
 \subsubsection*{Optimization Problem}
 
-Entropy balancing solves:
-
-\[
-\min
-\sum_{i=1}^{n}
-w_i \log(w_i)
-\]
-
-subject to:
-
-\[
-\sum_{i=1}^{n}w_i = 1
-\]
-
-and
-
-\[
-\sum_{i=1}^{n}
-w_i \Phi(x_i)
-=
-\bar{\Phi}^*.
-\]
-
-Interpretation:
+Entropy balancing solves: \[\min\sum_{i=1}^{n}w_i \log(w_i)\] subject to: \[\sum_{i=1}^{n}w_i = 1 \quad \text{ and } \quad \sum_{i=1}^{n}w_i \Phi(x_i)=\bar{\Phi}^*\]
 
 Among all weight vectors satisfying moment constraints, choose the one closest to uniform weighting.
 
 \subsubsection*{Resulting Weight Form}
 
-The solution takes the exponential-tilting form:
-
-\[
-w_i
-=
-\frac{\exp\{\lambda^\top \Phi(x_i)\}}
-     {\sum_{j=1}^{n}
-      \exp\{\lambda^\top \Phi(x_j)\}}
-\]
-
-for some Lagrange multiplier vector \(\lambda\).
-
-This is one of the key mathematical results of the paper.
+The solution takes the exponential-tilting form:\[w_i=\frac{\exp\{\lambda^\top \Phi(x_i)\}}{\sum_{j=1}^{n}\exp\{\lambda^\top \Phi(x_j)\}}\] for some Lagrange multiplier vector \(\lambda\). This is one of the key mathematical results of the paper.
 
 \subsection*{Transportability Estimator}
 
-After obtaining weights:
-
-\[
-\hat{\mu}_{EB}
-=
-\sum_{i=1}^{n}
-w_i y_i.
-\]
-
-This estimator transports the source outcome distribution to the target population.
+After obtaining weights:\[\hat{\mu}_{EB}=\sum_{i=1}^{n}w_i y_i.\] This estimator transports the source outcome distribution to the target population.
 
 \subsection*{Asymptotic Theory for Entropy Balancing}
 
-A major contribution is asymptotic inference.
-
-The paper proves:
-
-\[
-\sqrt{n}
-(\hat{\mu}_{EB}-\mu^*)
-\]
-
-is asymptotically normal.
-
-This permits:
-
-\begin{itemize}
-    \item Confidence intervals.
-    \item Hypothesis testing.
-    \item Variance estimation.
-\end{itemize}
+A major contribution is asymptotic inference. The paper proves: \[\sqrt{n}(\hat{\mu}_{EB}-\mu^*)\] is asymptotically normal. This permits confidence intervals, hypothesis testing, and variance estimation.
 
 \subsection*{Variance Estimation Challenge}
 
-Existing transportability methods often assume target summaries are fixed.
+Existing transportability methods often assume target summaries are fixed. However $\bar{\Phi}^*$ is estimated from a finite target sample.
 
-However:
+Therefore:\[Var(\bar{\Phi}^*)\neq 0.\]
 
-\[
-\bar{\Phi}^*
-\]
-
-is estimated from a finite target sample.
-
-Therefore:
-
-\[
-Var(\bar{\Phi}^*)
-\neq 0.
-\]
-
-Ignoring this source of variability leads to:
-
-\begin{itemize}
-    \item Underestimated standard errors.
-    \item Invalid confidence intervals.
-\end{itemize}
-
-This motivates the paper's variance-correction methodology.
+Ignoring this source of variability leads to underestimated standard errors and invalid confidence intervals, motivating the paper's variance correction methodology.
 
 \subsection*{Variance Estimator}
 
-The authors derive an asymptotic variance estimator that accounts for:
+The authors derive an asymptotic variance estimator that accounts for source sampling variability, weight estimation variability, and target-summary uncertainty.
 
-\begin{enumerate}
-    \item Source sampling variability.
-    \item Weight estimation variability.
-    \item Target-summary uncertainty.
-\end{enumerate}
-
-An important contribution is that the variance estimator only requires:
-
-\begin{itemize}
-    \item Source individual-level data.
-    \item Target summary statistics.
-\end{itemize}
-
-No target individual-level observations are needed.
+An important contribution is that the variance estimator only requires source individual-level data and target summary statistics. No target individual-level observations are needed.
 
 \subsection*{Limitation of Entropy Balancing}
 
-Entropy balancing requires:
-
-\[
-\log\{w(x)\}
-\]
-
-to be representable as a linear combination of:
-
-\[
-\Phi(x).
-\]
+Entropy balancing requires $\log\{w(x)\}$ to be representable as a linear combination of $\Phi(x)$.
 
 Specifically:
 
-\[
-\log\{w(x)\}
-=
-\lambda^\top \Phi(x).
-\]
+\[\log\{w(x)\}=\lambda^\top\Phi(x).\]
 
 This assumption may be restrictive.
 
-Potential problems include:
+Potential problems include nonlinear covariate shift, high-order interactions, and complex target distributions.
 
-\begin{itemize}
-    \item Nonlinear covariate shift.
-    \item High-order interactions.
-    \item Complex target distributions.
-\end{itemize}
-
-When these occur:
-
-\begin{itemize}
-    \item Moment matching may be insufficient.
-    \item Entropy balancing may be biased.
-\end{itemize}
+When these occur, moment matching may be insufficient and entropy balancing may be biased.
 
 \subsection*{Flexible Covariate-Shift Modeling}
 
 To overcome these limitations, the paper develops a second method.
 
-Instead of assuming:
+Instead of assuming
 
-\[
-\log\{w(x)\}
-=
-\lambda^\top \Phi(x),
-\]
+\[\log\{w(x)\}=\lambda^\top\Phi(x),\]
 
-the density ratio is modeled as:
+the density ratio is modeled as
 
-\[
-w(x)
-=
-\pi(x;\alpha)
-\]
+\[w(x)=\pi(x;\alpha)\]
 
-where:
+where $\alpha$ is an unknown parameter vector.
 
-\[
-\alpha
-\]
-
-is an unknown parameter vector.
-
-This permits much richer specifications.
-
-Examples include:
-
-\begin{itemize}
-    \item Nonlinear models.
-    \item Interaction models.
-    \item Flexible semiparametric structures.
-\end{itemize}
+This permits much richer specifications, including nonlinear models, interaction models, and flexible semiparametric structures.
 
 \subsection*{Augmented Objective Function}
 
-A key challenge is estimating:
+A key challenge is estimating $\alpha$ without observing target individual-level covariates.
 
-\[
-\alpha
-\]
-
-without observing target individual-level covariates.
-
-The paper proposes an augmented optimization criterion.
-
-The criterion:
-
-\begin{itemize}
-    \item Matches target moments.
-    \item Accounts for uncertainty in target summaries.
-\end{itemize}
+The paper proposes an augmented optimization criterion. The criterion matches target moments and accounts for uncertainty in target summaries.
 
 This augmentation is the key methodological innovation beyond entropy balancing.
 
 \subsection*{Model Checking}
 
-The paper develops a specification test for:
+The paper develops a specification test for $\pi(x;\alpha)$.
 
-\[
-\pi(x;\alpha).
-\]
+The resulting test statistic is shown to converge to a $\chi^2$ distribution under the null hypothesis.
 
-The resulting test statistic is shown to converge to a:
-
-\[
-\chi^2
-\]
-
-distribution under the null hypothesis.
-
-Purpose:
-
-Determine whether the chosen density-ratio model adequately captures covariate shift.
+The purpose is to determine whether the chosen density-ratio model adequately captures covariate shift.
 
 This provides a formal diagnostic unavailable in standard entropy balancing.
 
 \subsection*{Relationship Between Methods}
 
-The paper shows:
+The paper shows that entropy balancing is a special case of the proposed framework.
 
-Entropy balancing is a special case of the proposed framework.
+Specifically,
 
-Specifically:
-
-\[
-\log\{\pi(x;\alpha)\}
-=
-\alpha^\top \Phi(x)
-\]
+\[\log\{\pi(x;\alpha)\}=\alpha^\top\Phi(x)\]
 
 reduces the flexible method to entropy balancing.
 
-Thus:
-
-\begin{itemize}
-    \item Entropy balancing is nested within the proposed framework.
-    \item The proposed method is strictly more general.
-\end{itemize}
+Thus, entropy balancing is nested within the proposed framework, and the proposed method is strictly more general.
 
 \subsection*{Efficiency Results}
 
 The paper establishes several theoretical comparisons.
 
-When entropy balancing is correctly specified:
+When entropy balancing is correctly specified,
 
-\[
-\log\{w(x)\}
-=
-\lambda^\top \Phi(x),
-\]
+\[\log\{w(x)\}=\lambda^\top\Phi(x),\]
 
 the proposed estimator is asymptotically at least as efficient as entropy balancing.
 
-When entropy balancing is misspecified:
-
-\begin{itemize}
-    \item Entropy balancing may become inconsistent.
-    \item The proposed estimator remains consistent if \(\pi(x;\alpha)\) is correctly specified.
-\end{itemize}
+When entropy balancing is misspecified, entropy balancing may become inconsistent, while the proposed estimator remains consistent if $\pi(x;\alpha)$ is correctly specified.
 
 This is one of the paper's main theoretical advantages.
 
 \subsection*{Simulation Studies}
 
-The simulations evaluate:
+The simulations evaluate bias, variance, coverage probability, and mean squared error.
 
-\begin{itemize}
-    \item Bias.
-    \item Variance.
-    \item Coverage probability.
-    \item Mean squared error.
-\end{itemize}
-
-Scenarios include:
-
-\begin{enumerate}
-    \item Correctly specified entropy balancing.
-    \item Misspecified entropy balancing.
-    \item Nonlinear covariate shift.
-    \item Different levels of target-summary uncertainty.
-\end{enumerate}
+Scenarios include correctly specified entropy balancing, misspecified entropy balancing, nonlinear covariate shift, and different levels of target-summary uncertainty.
 
 \subsubsection*{Main Findings}
 
-When entropy balancing is correctly specified:
+When entropy balancing is correctly specified, both methods perform well and exhibit similar bias and coverage.
 
-\begin{itemize}
-    \item Both methods perform well.
-    \item Similar bias and coverage.
-\end{itemize}
+When entropy balancing is misspecified, entropy balancing becomes biased and coverage deteriorates.
 
-When entropy balancing is misspecified:
-
-\begin{itemize}
-    \item Entropy balancing becomes biased.
-    \item Coverage deteriorates.
-\end{itemize}
-
-The proposed method remains:
-
-\begin{itemize}
-    \item Consistent.
-    \item Approximately unbiased.
-    \item Properly calibrated.
-\end{itemize}
+The proposed method remains consistent, approximately unbiased, and properly calibrated.
 
 The advantage becomes more pronounced as covariate shift becomes increasingly nonlinear.
 
 \subsection*{SEER Breast Cancer Application}
 
-The methods are applied to:
+The methods are applied to the Surveillance, Epidemiology, and End Results (SEER) breast cancer data.
 
-\[
-\text{Surveillance, Epidemiology, and End Results (SEER)}
-\]
+The purpose is to estimate target-population outcomes when only summary statistics are available from the target population.
 
-breast cancer data.
+The application demonstrates practical implementation, variance correction, and flexible transportability modeling.
 
-Purpose:
-
-Estimate target-population outcomes when only summary statistics are available from the target population.
-
-The application demonstrates:
-
-\begin{itemize}
-    \item Practical implementation.
-    \item Variance correction.
-    \item Flexible transportability modeling.
-\end{itemize}
-
-The authors show that accounting for uncertainty in target summaries materially affects inference.
-
-Confidence intervals become wider after incorporating target-summary uncertainty.
+The authors show that accounting for uncertainty in target summaries materially affects inference. Confidence intervals become wider after incorporating target-summary uncertainty.
 
 \subsection*{Key Insights}
 
-A recurring theme throughout the paper is:
+A recurring theme throughout the paper is Target summary statistics should not be treated as fixed quantities.
 
-\begin{quote}
-Target summary statistics should not be treated as fixed quantities.
-\end{quote}
+Instead, $\bar{\Phi}^*$ must be viewed as an estimated quantity.
 
-Instead:
-
-\[
-\bar{\Phi}^*
-\]
-
-must be viewed as an estimated quantity.
-
-Ignoring its uncertainty can produce:
-
-\begin{itemize}
-    \item Overconfident inference.
-    \item Underestimated variance.
-    \item Poor coverage.
-\end{itemize}
+Ignoring its uncertainty can produce overconfident inference, underestimated variance, and poor coverage.
 
 The proposed framework corrects this issue.
 
 \subsection*{Limitations}
 
-The paper assumes:
+The paper assumes covariate shift, correct specification of the density-ratio model, and availability of informative target summaries.
 
-\begin{itemize}
-    \item Covariate shift.
-    \item Correct specification of the density-ratio model.
-    \item Availability of informative target summaries.
-\end{itemize}
-
-The methods do not address:
-
-\begin{itemize}
-    \item Outcome shift.
-    \item Label shift.
-    \item Concept drift.
-    \item Missing target summaries.
-\end{itemize}
+The methods do not address outcome shift, label shift, concept drift, or missing target summaries.
 
 The framework also requires sufficient overlap between source and target populations.
 
@@ -2081,35 +1399,15 @@ The paper addresses a major gap in the evaluation literature:
 There is no standardized benchmark for evaluating LLM performance in statistical programming languages such as SAS and R.
 \end{quote}
 
-Most existing code benchmarks focus on:
+Most existing code benchmarks focus on Python, general software engineering tasks, and algorithmic programming problems.
 
-\begin{itemize}
-    \item Python
-    \item General software engineering tasks
-    \item Algorithmic programming problems
-\end{itemize}
-
-StatLLM instead focuses on:
-
-\begin{itemize}
-    \item Statistical reasoning
-    \item Statistical programming
-    \item Statistical methodology selection
-    \item Data analysis workflows
-\end{itemize}
+StatLLM instead focuses on statistical reasoning, statistical programming, statistical methodology selection, and data analysis workflows.
 
 The benchmark is intended to evaluate whether LLMs can correctly translate statistical questions into executable statistical analyses.
 
 \subsection*{Motivation}
 
-Recent LLMs can generate code for:
-
-\begin{itemize}
-    \item Python
-    \item R
-    \item SAS
-    \item SQL
-\end{itemize}
+Recent LLMs can generate code for Python, R, SAS, and SQL.
 
 However, successful statistical analysis requires much more than code generation.
 
@@ -2123,14 +1421,7 @@ A model must:
     \item Produce correct statistical output.
 \end{enumerate}
 
-A model may generate code that appears reasonable but:
-
-\begin{itemize}
-    \item Uses the wrong statistical method.
-    \item Violates assumptions.
-    \item Produces incorrect results.
-    \item Fails to execute.
-\end{itemize}
+A model may generate code that appears reasonable but uses the wrong statistical method, violates assumptions, produces incorrect results, or fails to execute.
 
 Therefore evaluating statistical AI systems requires domain-specific benchmarks.
 
@@ -2140,207 +1431,32 @@ The benchmark contains three primary components.
 
 \subsubsection*{Statistical Analysis Tasks}
 
-The dataset contains:
-
-\[
-207
-\]
-
-statistical analysis tasks.
-
-These tasks are constructed from:
-
-\[
-65
-\]
-
-real datasets.
-
-Each task includes:
-
-\begin{itemize}
-    \item Dataset description.
-    \item Problem description.
-    \item Human-verified SAS solution.
-\end{itemize}
+The dataset contains 207 statistical analysis tasks constructed from 65 real datasets. Each task includes a dataset description, problem description, and human-verified SAS solution.
 
 \subsubsection*{LLM-Generated Code}
 
-The benchmark includes code generated by:
-
-\begin{itemize}
-    \item ChatGPT 3.5
-    \item ChatGPT 4.0
-    \item Llama 3.1 70B
-\end{itemize}
-
-Each model receives:
-
-\begin{itemize}
-    \item Dataset description.
-    \item Variable information.
-    \item Statistical objective.
-\end{itemize}
-
+The benchmark includes code generated by ChatGPT 3.5, ChatGPT 4.0, and Llama 3.1 70B. Each model receives a dataset description, variable information, and statistical objective.
 The resulting SAS code is stored and evaluated.
 
 \subsubsection*{Human Evaluation Scores}
 
-Every generated solution is reviewed by statistics experts.
-
-Human evaluators assess:
-
-\begin{itemize}
-    \item Code quality.
-    \item Executability.
-    \item Output correctness.
-\end{itemize}
-
-The resulting scores form the benchmark's ground truth.
+Every generated solution is reviewed by statistics experts. Human evaluators assess code quality, executability, and output correctness. The resulting scores form the benchmark's ground truth.
 
 \subsection*{Statistical Topics Covered}
 
-The benchmark spans a broad range of statistical analyses.
+The benchmark spans a broad range of statistical analyses, ranging from data management, descriptive statistics, hypothesis testing, GLMs, and variable selection.
 
-\subsubsection*{Data Management}
-
-Examples:
-
-\begin{itemize}
-    \item Data transformation.
-    \item Sorting.
-    \item Variable creation.
-    \item Data cleaning.
-\end{itemize}
-
-\subsubsection*{Descriptive Statistics}
-
-Examples:
-
-\begin{itemize}
-    \item Means.
-    \item Quantiles.
-    \item Contingency tables.
-    \item Missing-data summaries.
-\end{itemize}
-
-\subsubsection*{Correlation Analysis}
-
-Examples:
-
-\begin{itemize}
-    \item Pearson correlation.
-    \item Association measures.
-\end{itemize}
-
-\subsubsection*{Data Visualization}
-
-Examples:
-
-\begin{itemize}
-    \item Histograms.
-    \item Scatterplots.
-    \item Boxplots.
-    \item Time-series plots.
-\end{itemize}
-
-\subsubsection*{Hypothesis Testing}
-
-Examples:
-
-\begin{itemize}
-    \item One-sample tests.
-    \item Two-sample tests.
-    \item Paired tests.
-    \item Chi-square tests.
-    \item Normality tests.
-\end{itemize}
-
-\subsubsection*{ANOVA}
-
-Examples:
-
-\begin{itemize}
-    \item One-way ANOVA.
-    \item Two-way ANOVA.
-    \item Interaction effects.
-\end{itemize}
-
-\subsubsection*{Regression}
-
-Examples:
-
-\begin{itemize}
-    \item Linear regression.
-    \item Multiple regression.
-    \item Quadratic regression.
-    \item Model diagnostics.
-    \item Collinearity analysis.
-\end{itemize}
-
-\subsubsection*{Generalized Linear Models}
-
-Examples:
-
-\begin{itemize}
-    \item Logistic regression.
-    \item Poisson regression.
-    \item Mixed models.
-\end{itemize}
-
-\subsubsection*{Model Selection}
-
-Examples:
-
-\begin{itemize}
-    \item Forward selection.
-    \item Backward selection.
-    \item AIC-based selection.
-\end{itemize}
-
-\subsubsection*{Advanced Methods}
-
-Examples:
-
-\begin{itemize}
-    \item Survival analysis.
-    \item Cox proportional hazards models.
-    \item Nonparametric methods.
-\end{itemize}
+Advanced methods like survival analysis and Cox PH models, along with nonparametric methods, are covered.
 
 \subsection*{Why Statistical Benchmarks are Different}
 
-Traditional code benchmarks often evaluate:
+Traditional code benchmarks primarily evaluate whether a system can correctly map an input to the desired output.
 
-\[
-\text{Input}
-\rightarrow
-\text{Output}
-\]
+Statistical analysis introduces additional layers. A model must understand the question being asked, select an appropriate statistical method, generate correct code, and ultimately produce valid statistical inference.
 
-correctness.
+As a result, an answer may be syntactically correct while still being statistically wrong.
 
-Statistical analysis introduces additional layers:
-
-\[
-\text{Question}
-\rightarrow
-\text{Method}
-\rightarrow
-\text{Code}
-\rightarrow
-\text{Inference}
-\]
-
-An answer may be syntactically correct while being statistically wrong.
-
-For example:
-
-\begin{itemize}
-    \item Using linear regression instead of logistic regression.
-    \item Using a t-test instead of ANOVA.
-    \item Ignoring censoring in survival data.
-\end{itemize}
+For example, a model may use linear regression instead of logistic regression, use a t-test instead of ANOVA, or ignore censoring in survival data.
 
 Therefore statistical evaluation requires domain-specific criteria.
 
@@ -2348,61 +1464,27 @@ Therefore statistical evaluation requires domain-specific criteria.
 
 One of the major contributions of StatLLM is the use of expert human evaluation.
 
-The benchmark does not rely solely on automated metrics.
-
-Instead, statisticians manually score generated code.
+The benchmark does not rely solely on automated metrics. Instead, statisticians manually score generated code.
 
 The paper identifies several evaluation dimensions.
 
 \subsubsection*{Code Quality}
 
-Measures:
+Code quality measures statistical appropriateness, logical correctness, method selection, and code structure.
 
-\begin{itemize}
-    \item Statistical appropriateness.
-    \item Logical correctness.
-    \item Method selection.
-    \item Code structure.
-\end{itemize}
-
-Question:
-
-\begin{quote}
-Did the model choose the correct statistical procedure?
-\end{quote}
+The central question is whether the model chose the correct statistical procedure.
 
 \subsubsection*{Executability}
 
-Measures:
+Executability measures whether code runs successfully and whether syntax errors, missing arguments, or invalid procedures are present.
 
-\begin{itemize}
-    \item Whether code runs successfully.
-    \item Presence of syntax errors.
-    \item Missing arguments.
-    \item Invalid procedures.
-\end{itemize}
-
-Question:
-
-\begin{quote}
-Can the code actually be executed?
-\end{quote}
+The central question is whether the code can actually be executed.
 
 \subsubsection*{Output Accuracy}
 
-Measures:
+Output accuracy measures whether the produced output answers the question, whether the correct analysis was performed, and whether the reported results are correct.
 
-\begin{itemize}
-    \item Whether the produced output answers the question.
-    \item Whether the correct analysis was performed.
-    \item Whether the reported results are correct.
-\end{itemize}
-
-Question:
-
-\begin{quote}
-Did the code produce the correct statistical result?
-\end{quote}
+The central question is whether the code produced the correct statistical result.
 
 \subsubsection*{Overall Score}
 
@@ -2412,231 +1494,102 @@ This provides a holistic assessment of statistical-analysis performance.
 
 \subsection*{Evaluation Metrics for Statistical LLMs}
 
-The paper motivates several categories of evaluation metrics.
-
-These are useful beyond StatLLM and are directly relevant to future statistical AI systems.
+The paper motivates several categories of evaluation metrics. These are useful beyond StatLLM and are directly relevant to future statistical AI systems.
 
 \subsubsection*{Method Selection Accuracy}
 
 Arguably the most important metric.
 
-Define:
+Define
 
-\[
-MSA
-=
-\frac{\text{Correct Method Selections}}
-{\text{Total Tasks}}.
-\]
+\[MSA=\frac{\text{Correct Method Selections}}{\text{Total Tasks}}.\]
 
-Examples:
-
-\begin{itemize}
-    \item Logistic regression selected when appropriate.
-    \item Cox model selected for survival analysis.
-    \item ANOVA selected for group comparisons.
-\end{itemize}
+Examples include selecting logistic regression when appropriate, choosing a Cox model for survival analysis, or using ANOVA for group comparisons.
 
 A statistically incorrect method should be counted as failure even if the code executes.
 
 \subsubsection*{Code Executability Rate}
 
-Define:
+Define
 
-\[
-ER
-=
-\frac{\text{Executable Programs}}
-{\text{Total Programs}}.
-\]
+\[ER=\frac{\text{Executable Programs}}{\text{Total Programs}}.\]
 
-Measures:
+This metric measures syntax correctness and software compatibility.
 
-\begin{itemize}
-    \item Syntax correctness.
-    \item Software compatibility.
-\end{itemize}
-
-This is analogous to pass rates in software-engineering benchmarks.
+It is analogous to pass rates in software-engineering benchmarks.
 
 \subsubsection*{Output Accuracy Rate}
 
-Define:
+Define
 
-\[
-OAR
-=
-\frac{\text{Correct Outputs}}
-{\text{Total Tasks}}.
-\]
+\[OAR=\frac{\text{Correct Outputs}}{\text{Total Tasks}}.\]
 
 This evaluates whether the generated code ultimately solves the statistical problem.
 
 \subsubsection*{Statistical Correctness}
 
-Measures whether:
-
-\begin{itemize}
-    \item Assumptions are respected.
-    \item Proper estimands are reported.
-    \item Statistical procedures are correctly specified.
-\end{itemize}
+Statistical correctness measures whether assumptions are respected, proper estimands are reported, and statistical procedures are correctly specified.
 
 This is more important than simple code correctness.
 
 \subsubsection*{Human Evaluation Score}
 
-General framework:
+A general framework can be written as
 
-\[
-Score
-=
-f(
-Quality,
-Executability,
-Accuracy
-).
-\]
+\[Score=f(Quality,Executability,Accuracy).\]
 
 Human evaluation remains the gold standard.
 
 \subsubsection*{Agreement with Human Solutions}
 
-Suppose:
+Suppose $C_{LLM}$ is generated code and $C_{Human}$ is verified code.
 
-\[
-C_{LLM}
-\]
+One can compare procedure selection, parameter choices, and output equivalence.
 
-is generated code and
-
-\[
-C_{Human}
-\]
-
-is verified code.
-
-One can compare:
-
-\begin{itemize}
-    \item Procedure selection.
-    \item Parameter choices.
-    \item Output equivalence.
-\end{itemize}
-
-Importantly, exact code matching is not required.
-
-Different code can produce the same correct analysis.
+Importantly, exact code matching is not required. Different code can produce the same correct analysis.
 
 \subsection*{Limitations of Traditional NLP Metrics}
 
 The paper highlights a major issue.
 
-Metrics such as:
+Many existing NLP benchmarks rely on text-similarity metrics such as BLEU and ROUGE.
 
-\begin{itemize}
-    \item BLEU
-    \item ROUGE
-    \item Exact Match
-\end{itemize}
+BLEU (Bilingual Evaluation Understudy) measures overlap of $n$-grams between a generated response and a reference response. Higher BLEU scores indicate greater textual similarity.
 
-may not be appropriate for statistical code.
+ROUGE (Recall-Oriented Understudy for Gisting Evaluation) measures overlap between generated and reference text, often emphasizing recall of important words or phrases.
 
-Example:
+These metrics are useful for translation and summarization tasks, where textual similarity is closely related to correctness.
 
-Two SAS programs may be completely different textually but perform identical analyses.
+However, they may not be appropriate for statistical code.
 
-Thus:
+Two SAS programs may be completely different textually but perform identical analyses. Conversely, two programs may appear very similar while producing different statistical conclusions.
 
-\[
-\text{Text Similarity}
-\neq
-\text{Statistical Correctness}.
-\]
+Thus,
+
+\[\text{Text Similarity}\neq\text{Statistical Correctness}.\]
 
 This motivates specialized evaluation metrics for statistical programming.
 
 \subsection*{Benchmarking Framework for Statistical AI}
 
-The paper implicitly suggests a hierarchy of evaluation.
+The paper implicitly suggests a hierarchy of evaluation:
 
-Level 1:
-
-\[
-\text{Can the code run?}
-\]
-
-Level 2:
-
-\[
-\text{Is the method correct?}
-\]
-
-Level 3:
-
-\[
-\text{Is the statistical output correct?}
-\]
-
-Level 4:
-
-\[
-\text{Is the interpretation correct?}
-\]
+\begin{enumerate}
+    \item Can the code run?
+    \item Is the method correct?
+    \item Is the statistical output correct?
+    \item Is the interpretation correct?
+\end{enumerate}
 
 Future statistical AI benchmarks should ideally evaluate all four levels.
 
 \subsection*{Connection to Statistical Copilots}
 
-The authors argue that benchmarks such as StatLLM are necessary for developing:
-
-\begin{itemize}
-    \item AI-assisted statistical software.
-    \item Statistical copilots.
-    \item Natural-language data-analysis systems.
-\end{itemize}
+The authors argue that benchmarks such as StatLLM are necessary for developing AI-assisted statistical software, statistical copilots, and natural-language data-analysis systems.
 
 Future systems may allow users to specify analyses through natural language rather than programming directly.
 
 Reliable benchmarks are required before such systems can be trusted.
-
-\subsection*{Relevance to the Project}
-
-The ideas from StatLLM are directly applicable to evaluating AI systems in statistics.
-
-For example, if an AI system is developed for:
-
-\begin{itemize}
-    \item IPD reconstruction,
-    \item Covariate augmentation,
-    \item Survival meta-analysis,
-    \item Transportability,
-\end{itemize}
-
-evaluation should not only consider:
-
-\[
-\text{Did it generate code?}
-\]
-
-but also:
-
-\[
-\text{Did it generate the correct statistical analysis?}
-\]
-
-Potential evaluation dimensions include:
-
-\begin{itemize}
-    \item Reconstruction accuracy.
-    \item Treatment-effect accuracy.
-    \item Covariate-recovery accuracy.
-    \item Survival-curve fidelity.
-    \item Statistical validity.
-    \item Uncertainty calibration.
-\end{itemize}
-
-This mirrors the philosophy underlying StatLLM.
 
 \subsection*{Key Takeaways}
 
@@ -2653,15 +1606,249 @@ This mirrors the philosophy underlying StatLLM.
 \end{enumerate}
 
 % =================================================================================
+\newpage
 \part{Project Directions}
 
 \section{Single-Covariate Reconstruction and Extremal Inference}
 
 \section{Joint Covariate Reconstruction}
 
+\section{Something about StatLLM}
+
+
 
 % =================================================================================
+\newpage
 \part{Notes}
+
+\section{Survival Analysis}
+
+\subsection*{Overview}
+
+Survival analysis studies the time until an event occurs. Common events include death, disease progression, relapse, equipment failure, and customer churn.
+
+Unlike standard regression, survival analysis must account for time-to-event outcomes, censoring, and changing risk over time.
+
+The primary random variable is $T$, the event time.
+
+\subsection*{Censoring}
+
+Survival data are often only partially observed.
+
+For right censoring, we observe
+
+\[Y=\min(T,C)\]
+
+with event indicator
+
+\[\delta=I(T\le C).\]
+
+If $\delta=1$, the event is observed. If $\delta=0$, the observation is censored.
+
+Other forms include left censoring ($T<C$) and interval censoring ($L<T<R$).
+
+A fundamental assumption is independent censoring:
+
+\[T\perp C.\]
+
+Violations produce informative censoring and may bias inference.
+
+\subsection*{Core Survival Quantities}
+
+The survival function is
+
+\[S(t)=P(T>t),\]
+
+the probability of surviving beyond time $t$.
+
+The cumulative distribution function is
+
+\[F(t)=P(T\le t)=1-S(t).\]
+
+For continuous outcomes,
+
+\[f(t)=-\frac{dS(t)}{dt}.\]
+
+The hazard function is
+
+\[h(t)=\lim_{\Delta t\to0}\frac{P(t\le T<t+\Delta t\mid T\ge t)}{\Delta t},\]
+
+which represents the instantaneous event risk among individuals still at risk.
+
+The cumulative hazard is
+
+\[H(t)=\int_0^t h(u)\,du.\]
+
+These quantities are related through
+
+\[S(t)=e^{-H(t)}\]
+
+and
+
+\[f(t)=h(t)S(t).\]
+
+\subsection*{Kaplan--Meier Estimation}
+
+The Kaplan--Meier estimator is the standard nonparametric estimator of the survival function:
+
+\[\hat S(t)=\prod_{t_j\le t}\left(1-\frac{d_j}{n_j}\right),\]
+
+where $d_j$ is the number of events and $n_j$ is the number at risk at time $t_j$.
+
+The estimator is nonparametric, handles right censoring, and produces a stepwise estimate of the survival curve.
+
+The median survival time is
+
+\[t_{0.5}=\inf\{t:S(t)\le0.5\}.\]
+
+\subsection*{Nelson--Aalen Estimation}
+
+The Nelson--Aalen estimator estimates cumulative hazard:
+
+\[\hat H(t)=\sum_{t_j\le t}\frac{d_j}{n_j}.\]
+
+A useful approximation is
+
+\[\hat S(t)\approx e^{-\hat H(t)}.\]
+
+\subsection*{Comparing Survival Curves}
+
+The log-rank test is the most common test for comparing survival curves.
+
+The null hypothesis is
+
+\[H_0:S_1(t)=S_2(t).\]
+
+The test compares observed and expected events across groups and is most powerful when proportional hazards holds.
+
+\subsection*{Parametric Survival Models}
+
+Parametric models assume a specific distribution for $T$.
+
+The exponential model assumes a constant hazard:
+
+\[h(t)=\lambda,\]
+
+with survival function
+
+\[S(t)=e^{-\lambda t}.\]
+
+The Weibull model assumes
+
+\[h(t)=\lambda\gamma t^{\gamma-1}.\]
+
+When $\gamma=1$, the model reduces to the exponential model. Values of $\gamma>1$ imply increasing hazard, while $\gamma<1$ implies decreasing hazard.
+
+The log-normal model assumes
+
+\[\log(T)\sim N(\mu,\sigma^2)\]
+
+and allows non-monotone hazards.
+
+\subsection*{Accelerated Failure Time Models}
+
+Accelerated Failure Time (AFT) models act directly on survival times:
+
+\[\log(T)=X^\top\beta+\varepsilon.\]
+
+Covariates accelerate or decelerate survival time rather than modifying hazards.
+
+A major advantage is that AFT models do not require proportional hazards.
+
+\subsection*{Cox Proportional Hazards Model}
+
+The Cox model is the most widely used survival model:
+
+\[h(t|X)=h_0(t)\exp(X^\top\beta).\]
+
+Here $h_0(t)$ is the baseline hazard and $\exp(X^\top\beta)$ represents relative risk.
+
+For two individuals,
+
+\[HR=\frac{h(t|X_1)}{h(t|X_2)}=\exp[(X_1-X_2)^\top\beta].\]
+
+The hazard ratio measures relative instantaneous risk.
+
+\subsection*{Proportional Hazards Assumption}
+
+The key Cox assumption is that hazard ratios remain constant over time:
+
+\[HR(t)=HR.\]
+
+Equivalently,
+
+\[\frac{h_1(t)}{h_2(t)}=\text{constant}.\]
+
+Common signs of violation include crossing Kaplan--Meier curves, delayed treatment effects, and immunotherapy-type survival patterns.
+
+Common diagnostics include Schoenfeld residuals, log-minus-log plots, and time-varying coefficient models.
+
+\subsection*{Time-Varying Covariates}
+
+The Cox model can be extended to time-varying covariates:
+
+\[h(t)=h_0(t)\exp[X(t)^\top\beta].\]
+
+Examples include biomarker measurements, medication usage, and blood pressure.
+
+\subsection*{Restricted Mean Survival Time}
+
+Restricted Mean Survival Time (RMST) is a popular alternative to hazard ratios:
+
+\[RMST(\tau)=\int_0^\tau S(t)\,dt.\]
+
+RMST represents expected survival accumulated before time horizon $\tau$.
+
+A common treatment effect is
+
+\[\Delta_{RMST}=RMST_T-RMST_C.\]
+
+Unlike hazard ratios, RMST does not require proportional hazards and remains interpretable when survival curves cross.
+
+\subsection*{Competing Risks}
+
+Competing risks occur when multiple event types are possible and the occurrence of one event prevents another.
+
+Standard Kaplan--Meier methods may overestimate incidence in this setting.
+
+Common approaches include cause-specific hazard models and Fine--Gray models.
+
+\subsection*{Frailty Models}
+
+Frailty models introduce unobserved random effects:
+
+\[h(t|X,Z)=Zh_0(t)\exp(X^\top\beta),\]
+
+where $Z$ represents latent heterogeneity.
+
+These models account for unobserved differences in risk across individuals.
+
+\subsection*{Bayesian Survival Analysis}
+
+Bayesian survival models place priors on hazards, survival functions, or regression coefficients.
+
+Examples include Bayesian Cox models, piecewise exponential models, NTR processes, and Dirichlet process mixtures.
+
+These approaches provide full uncertainty quantification and highly flexible hazard modeling.
+
+\subsection*{Key Assumptions}
+
+The most important assumptions in survival analysis are independent censoring, correct model specification, proportional hazards (for Cox models), independent observations, and positivity/overlap in causal survival settings.
+
+\subsection*{Key Takeaways}
+
+\begin{enumerate}
+    \item Survival analysis studies time-to-event outcomes.
+    \item Censoring is the defining challenge.
+    \item The survival function \(S(t)\) gives survival probabilities.
+    \item The hazard function \(h(t)\) measures instantaneous risk.
+    \item Kaplan--Meier estimation is the standard nonparametric survival estimator.
+    \item Cox regression is the dominant semiparametric model.
+    \item Hazard ratios require proportional hazards.
+    \item RMST provides a robust alternative when PH fails.
+    \item Frailty models account for unobserved heterogeneity.
+    \item Bayesian survival models provide flexible uncertainty-aware inference.
+\end{enumerate}
 
 \section{Meta-Analysis Review}
 
@@ -2669,35 +1856,15 @@ This mirrors the philosophy underlying StatLLM.
 
 Meta-analysis is a statistical framework for combining evidence from multiple studies that investigate the same scientific question.
 
-Rather than relying on a single study, meta-analysis seeks to synthesize information across studies to obtain:
+Rather than relying on a single study, meta-analysis synthesizes information across studies to obtain more precise effect estimates, greater statistical power, improved generalizability, and better understanding of heterogeneity.
 
-\begin{itemize}
-    \item More precise effect estimates.
-    \item Greater statistical power.
-    \item Improved generalizability.
-    \item Better understanding of heterogeneity.
-\end{itemize}
-
-Conceptually:
-
-\[
-\text{Multiple Studies}
-\quad \Longrightarrow \quad
-\text{One Combined Estimate}
-\]
+Conceptually, multiple studies are combined into one overall estimate.
 
 The fundamental idea is that each study provides partial information about an underlying treatment effect.
 
 \subsection*{Why Meta-Analysis Exists}
 
-Individual studies often suffer from:
-
-\begin{itemize}
-    \item Small sample sizes.
-    \item Limited power.
-    \item Conflicting conclusions.
-    \item Population-specific results.
-\end{itemize}
+Individual studies often suffer from small sample sizes, limited power, conflicting conclusions, and population-specific results.
 
 Meta-analysis pools information across studies to reduce uncertainty.
 
@@ -2712,51 +1879,15 @@ C & 0.10 & 0.12
 \end{tabular}
 \end{center}
 
-Each study alone is noisy.
-
-Meta-analysis combines them into a single estimate with smaller uncertainty.
+Each study alone is noisy. Meta-analysis combines them into a single estimate with smaller uncertainty.
 
 \subsection*{Basic Setup}
 
-Suppose there are \(K\) studies.
+Suppose there are $K$ studies. For study $k$, $\hat{\theta}_k$ denotes the estimated treatment effect. Examples include mean differences, odds ratios, risk ratios, hazard ratios, and RMST differences.
 
-For study \(k\):
+Associated uncertainty is represented by $s_k^2$, where $s_k$ is the standard error of $\hat{\theta}_k$.
 
-\[
-\hat{\theta}_k
-\]
-
-denotes the estimated treatment effect.
-
-Examples include:
-
-\begin{itemize}
-    \item Mean differences.
-    \item Odds ratios.
-    \item Risk ratios.
-    \item Hazard ratios.
-    \item RMST differences.
-\end{itemize}
-
-Associated uncertainty is represented by:
-
-\[
-s_k^2
-\]
-
-where:
-
-\[
-s_k = \text{standard error of }\hat{\theta}_k.
-\]
-
-The goal is to estimate:
-
-\[
-\theta
-\]
-
-using all studies simultaneously.
+The goal is to estimate $\theta$ using all studies simultaneously.
 
 \subsection*{Common Effect Measures}
 
@@ -2764,114 +1895,49 @@ using all studies simultaneously.
 
 For continuous outcomes:
 
-\[
-MD
-=
-\bar{Y}_T-\bar{Y}_C.
-\]
+\[MD=\bar{Y}_T-\bar{Y}_C.\]
 
-Examples:
-
-\begin{itemize}
-    \item Blood pressure reduction.
-    \item Weight loss.
-    \item Test scores.
-\end{itemize}
+Examples include blood pressure reduction, weight loss, and test scores.
 
 \subsubsection*{Standardized Mean Difference}
 
-Used when studies measure outcomes on different scales.
+The standardized mean difference is used when studies measure outcomes on different scales:
 
-\[
-SMD
-=
-\frac{\bar{Y}_T-\bar{Y}_C}
-{s_{pooled}}.
-\]
+\[SMD=\frac{\bar{Y}_T-\bar{Y}_C}{s_{pooled}}.\]
 
-Interpretation:
-
-\begin{itemize}
-    \item 0.2 = small effect.
-    \item 0.5 = moderate effect.
-    \item 0.8 = large effect.
-\end{itemize}
+Common interpretations are 0.2 as a small effect, 0.5 as a moderate effect, and 0.8 as a large effect.
 
 \subsubsection*{Risk Ratio}
 
 For binary outcomes:
 
-\[
-RR
-=
-\frac{P(Y=1|T)}
-     {P(Y=1|C)}.
-\]
+\[RR=\frac{P(Y=1|T)}{P(Y=1|C)}.\]
 
-Interpretation:
-
-\begin{itemize}
-    \item RR = 1 : no effect.
-    \item RR < 1 : treatment reduces risk.
-    \item RR > 1 : treatment increases risk.
-\end{itemize}
+Here $RR=1$ indicates no effect, $RR<1$ indicates treatment reduces risk, and $RR>1$ indicates treatment increases risk.
 
 \subsubsection*{Odds Ratio}
 
-\[
-OR
-=
-\frac{
-P(Y=1|T)/(1-P(Y=1|T))
-}{
-P(Y=1|C)/(1-P(Y=1|C))
-}.
-\]
+The odds ratio is
 
-Often used in:
+\[OR=\frac{P(Y=1|T)/(1-P(Y=1|T))}{P(Y=1|C)/(1-P(Y=1|C))}.\]
 
-\begin{itemize}
-    \item Case-control studies.
-    \item Logistic regression.
-\end{itemize}
+It is often used in case-control studies and logistic regression.
 
 \subsubsection*{Hazard Ratio}
 
 For survival outcomes:
 
-\[
-HR
-=
-\frac{h_T(t)}
-     {h_C(t)}.
-\]
+\[HR=\frac{h_T(t)}{h_C(t)}.\]
 
-Interpretation:
-
-\begin{itemize}
-    \item HR = 1 : identical hazards.
-    \item HR < 1 : treatment beneficial.
-    \item HR > 1 : treatment harmful.
-\end{itemize}
-
-Hazard ratios assume proportional hazards when interpreted globally.
+Here $HR=1$ indicates identical hazards, $HR<1$ indicates treatment benefit, and $HR>1$ indicates harm. Hazard ratios assume proportional hazards when interpreted globally.
 
 \subsection*{The Core Meta-Analysis Estimator}
 
-The most basic estimator is a weighted average.
+The most basic estimator is a weighted average:
 
-\[
-\hat{\theta}_{MA}
-=
-\sum_{k=1}^{K}
-w_k \hat{\theta}_k.
-\]
+\[\hat{\theta}_{MA}=\sum_{k=1}^{K}w_k\hat{\theta}_k.\]
 
-Weights satisfy:
-
-\[
-\sum_{k=1}^{K} w_k = 1.
-\]
+The weights satisfy $\sum_{k=1}^{K}w_k=1$.
 
 The entire field of meta-analysis largely revolves around how these weights are chosen.
 
@@ -2879,7 +1945,7 @@ The entire field of meta-analysis largely revolves around how these weights are 
 
 Not all studies provide equal information.
 
-Example:
+For example:
 
 \begin{center}
 \begin{tabular}{ccc}
@@ -2889,187 +1955,69 @@ B & 1000 & 0.05
 \end{tabular}
 \end{center}
 
-Study B is much more precise.
-
-Therefore:
-
-\[
-w_B > w_A.
-\]
+Study B is much more precise, so $w_B>w_A$.
 
 Meta-analysis assigns more weight to studies with smaller uncertainty.
 
 \subsection*{Inverse Variance Weighting}
 
-The most common weighting scheme is:
+The most common weighting scheme is
 
-\[
-w_k
-=
-\frac{1/s_k^2}
-{\sum_{j=1}^{K}1/s_j^2}.
-\]
+\[w_k=\frac{1/s_k^2}{\sum_{j=1}^{K}1/s_j^2}.\]
 
-Interpretation:
+Small variance implies large weight, while large variance implies small weight.
 
-\begin{itemize}
-    \item Small variance $\rightarrow$ large weight.
-    \item Large variance $\rightarrow$ small weight.
-\end{itemize}
+The pooled estimator becomes
 
-The pooled estimator becomes:
-
-\[
-\hat{\theta}_{MA}
-=
-\frac{
-\sum_{k=1}^{K}
-\hat{\theta}_k/s_k^2
-}{
-\sum_{k=1}^{K}
-1/s_k^2
-}.
-\]
+\[\hat{\theta}_{MA}=\frac{\sum_{k=1}^{K}\hat{\theta}_k/s_k^2}{\sum_{k=1}^{K}1/s_k^2}.\]
 
 \subsection*{Variance of the Pooled Estimate}
 
-The variance of the pooled estimate is:
+The variance of the pooled estimate is
 
-\[
-Var(\hat{\theta}_{MA})
-=
-\frac{1}
-{\sum_{k=1}^{K}
-1/s_k^2}.
-\]
+\[Var(\hat{\theta}_{MA})=\frac{1}{\sum_{k=1}^{K}1/s_k^2}.\]
 
-The standard error is:
+The standard error is
 
-\[
-SE(\hat{\theta}_{MA})
-=
-\sqrt{
-\frac{1}
-{\sum_{k=1}^{K}
-1/s_k^2}
-}.
-\]
+\[SE(\hat{\theta}_{MA})=\sqrt{\frac{1}{\sum_{k=1}^{K}1/s_k^2}}.\]
 
-Confidence intervals follow:
+Confidence intervals follow
 
-\[
-\hat{\theta}_{MA}
-\pm
-1.96
-\times
-SE(\hat{\theta}_{MA}).
-\]
+\[\hat{\theta}_{MA}\pm1.96\times SE(\hat{\theta}_{MA}).\]
 
 \subsection*{What is Heterogeneity?}
 
-A central question in meta-analysis is:
+A central question in meta-analysis is whether all studies are estimating the same effect.
 
-\begin{quote}
-Are all studies estimating the same effect?
-\end{quote}
+If all studies estimate the same treatment effect, then $\theta_1=\theta_2=\cdots=\theta_K$, and there is little heterogeneity.
 
-If all studies estimate the same treatment effect:
-
-\[
-\theta_1
-=
-\theta_2
-=
-\cdots
-=
-\theta_K.
-\]
-
-there is little heterogeneity.
-
-If effects vary:
-
-\[
-\theta_1
-\neq
-\theta_2
-\neq
-\cdots
-\neq
-\theta_K,
-\]
-
-there is heterogeneity.
+If effects vary, then $\theta_1\neq\theta_2\neq\cdots\neq\theta_K$, and there is heterogeneity.
 
 \subsection*{Sources of Heterogeneity}
 
-Differences may arise from:
-
-\begin{itemize}
-    \item Patient populations.
-    \item Inclusion criteria.
-    \item Treatment protocols.
-    \item Follow-up durations.
-    \item Biomarker prevalence.
-    \item Study quality.
-\end{itemize}
+Differences may arise from patient populations, inclusion criteria, treatment protocols, follow-up durations, biomarker prevalence, and study quality.
 
 Heterogeneity is often the most important issue in practice.
 
 \subsection*{Cochran's Q Statistic}
 
-One measure of heterogeneity is:
+One measure of heterogeneity is
 
-\[
-Q
-=
-\sum_{k=1}^{K}
-w_k
-(\hat{\theta}_k-\hat{\theta}_{MA})^2.
-\]
+\[Q=\sum_{k=1}^{K}w_k(\hat{\theta}_k-\hat{\theta}_{MA})^2.\]
 
-Interpretation:
-
-\begin{itemize}
-    \item Large values indicate disagreement across studies.
-    \item Small values indicate consistency.
-\end{itemize}
+Large values indicate disagreement across studies, while small values indicate consistency.
 
 Under homogeneity:
 
-\[
-Q
-\sim
-\chi^2_{K-1}.
-\]
+\[Q\sim\chi^2_{K-1}.\]
 
 \subsection*{I-Squared}
 
-A more interpretable measure is:
+A more interpretable measure is
 
-\[
-I^2
-=
-\max
-\left(
-0,
-\frac{Q-(K-1)}
-     {Q}
-\right)
-\times 100\%.
-\]
+\[I^2=\max\left(0,\frac{Q-(K-1)}{Q}\right)\times100\%.\]
 
-Interpretation:
-
-\begin{center}
-\begin{tabular}{cc}
-$I^2$ & Interpretation \\
-0-25\% & Low heterogeneity \\
-25-50\% & Moderate heterogeneity \\
-50-75\% & Substantial heterogeneity \\
-75\%+ & High heterogeneity
-\end{tabular}
-\end{center}
+Common interpretations are 0--25\% as low heterogeneity, 25--50\% as moderate heterogeneity, 50--75\% as substantial heterogeneity, and 75\%+ as high heterogeneity.
 
 This statistic appears in almost every published meta-analysis.
 
@@ -3077,22 +2025,9 @@ This statistic appears in almost every published meta-analysis.
 
 The standard visualization is the forest plot.
 
-Each study contributes:
+Each study contributes a point estimate and confidence interval. The pooled estimate is displayed at the bottom.
 
-\begin{itemize}
-    \item Point estimate.
-    \item Confidence interval.
-\end{itemize}
-
-The pooled estimate is displayed at the bottom.
-
-Interpretation:
-
-\begin{itemize}
-    \item Horizontal lines represent uncertainty.
-    \item Squares represent study estimates.
-    \item Diamond represents pooled estimate.
-\end{itemize}
+Horizontal lines represent uncertainty, squares represent study estimates, and the diamond represents the pooled estimate.
 
 Forest plots are the most recognizable figure in meta-analysis.
 
@@ -3100,197 +2035,59 @@ Forest plots are the most recognizable figure in meta-analysis.
 
 Meta-analysis assumes observed studies represent all completed studies.
 
-In practice:
-
-\begin{itemize}
-    \item Positive studies are more likely to be published.
-    \item Negative studies are more likely to remain unpublished.
-\end{itemize}
-
-This creates publication bias.
+In practice, positive studies are more likely to be published, while negative studies are more likely to remain unpublished. This creates publication bias.
 
 \subsection*{Funnel Plots}
 
 Publication bias is commonly assessed using a funnel plot.
 
-Plot:
+The plot places $\hat{\theta}_k$ against $SE(\hat{\theta}_k)$.
 
-\[
-\hat{\theta}_k
-\]
-
-against:
-
-\[
-SE(\hat{\theta}_k).
-\]
-
-Without bias:
-
-\begin{itemize}
-    \item Plot appears symmetric.
-\end{itemize}
-
-With bias:
-
-\begin{itemize}
-    \item Plot becomes asymmetric.
-\end{itemize}
+Without bias, the plot appears symmetric. With bias, the plot becomes asymmetric.
 
 \subsection*{Aggregate Data vs Individual Participant Data}
 
-Meta-analysis can be conducted using:
+Meta-analysis can be conducted using aggregate data or individual participant data.
 
 \subsubsection*{Aggregate Data (AD)}
 
-Uses published summaries only.
+Aggregate-data meta-analysis uses published summaries only, such as hazard ratios, odds ratios, and means.
 
-Examples:
-
-\begin{itemize}
-    \item Hazard ratios.
-    \item Odds ratios.
-    \item Means.
-\end{itemize}
-
-Advantages:
-
-\begin{itemize}
-    \item Easy to obtain.
-    \item Computationally simple.
-\end{itemize}
-
-Disadvantages:
-
-\begin{itemize}
-    \item Loss of information.
-    \item Limited subgroup analyses.
-\end{itemize}
+It is easy to obtain and computationally simple, but suffers from information loss and limited subgroup analysis.
 
 \subsubsection*{Individual Participant Data (IPD)}
 
-Uses original patient-level observations.
+IPD meta-analysis uses original patient-level observations.
 
-Advantages:
-
-\begin{itemize}
-    \item More flexible.
-    \item More powerful.
-    \item Allows treatment-effect heterogeneity analysis.
-\end{itemize}
-
-Disadvantages:
-
-\begin{itemize}
-    \item Difficult to obtain.
-    \item Resource intensive.
-\end{itemize}
+It is more flexible, more powerful, and allows treatment-effect heterogeneity analysis, but is difficult to obtain and resource intensive.
 
 IPD meta-analysis is often considered the gold standard.
 
 \subsection*{Meta-Analysis for Survival Data}
 
-Historically, survival meta-analysis relies on:
+Historically, survival meta-analysis relies on $\log(HR)$ and corresponding standard errors.
 
-\[
-\log(HR)
-\]
+The pooled hazard-ratio estimator is
 
-and corresponding standard errors.
+\[\hat{\beta}=\frac{\sum_k w_k\hat{\beta}_k}{\sum_k w_k},\]
 
-The pooled hazard ratio is:
+where $\hat{\beta}_k=\log(HR_k)$.
 
-\[
-\hat{\beta}
-=
-\frac{
-\sum_k
-w_k
-\hat{\beta}_k
-}{
-\sum_k w_k
-}.
-\]
-
-where:
-
-\[
-\hat{\beta}_k
-=
-\log(HR_k).
-\]
-
-Modern approaches increasingly use:
-
-\begin{itemize}
-    \item Reconstructed survival curves.
-    \item RMST.
-    \item Time-varying treatment effects.
-    \item Bayesian survival models.
-\end{itemize}
+Modern approaches increasingly use reconstructed survival curves, RMST, time-varying treatment effects, and Bayesian survival models.
 
 These methods relax proportional hazards assumptions.
 
-\subsection*{Why Meta-Analysis Matters for This Project}
-
-Your project sits at the intersection of:
-
-\begin{enumerate}
-    \item Survival analysis.
-    \item IPD reconstruction.
-    \item Covariate reconstruction.
-    \item Meta-analysis.
-\end{enumerate}
-
-The overall workflow is:
-
-\[
-\text{Published Studies}
-\rightarrow
-\text{Reconstructed IPD}
-\rightarrow
-\text{Study-Specific Effects}
-\rightarrow
-\text{Meta-Analysis}
-\]
-
-The major challenge is that reconstruction uncertainty introduces an additional source of variability beyond standard sampling uncertainty.
-
-Many of the advanced methods you will study later can be viewed as extensions of the simple weighted-average framework developed in this section.
 \section{Meta-Analysis Models}
 
 \subsection*{Overview}
 
-The central goal of meta-analysis is to combine study-specific estimates
+The central goal of meta-analysis is to combine study-specific estimates $\hat{\theta}_1,\ldots,\hat{\theta}_K$ into a single summary estimate.
 
-\[
-\hat{\theta}_1,\ldots,\hat{\theta}_K
-\]
+Different meta-analysis models differ primarily in how they treat the underlying true study effects $\theta_1,\ldots,\theta_K$.
 
-into a single summary estimate.
+The key question is whether all studies estimate the same treatment effect or whether the treatment effect varies across studies.
 
-Different meta-analysis models differ primarily in how they treat the underlying true study effects:
-
-\[
-\theta_1,\ldots,\theta_K.
-\]
-
-The key question is:
-
-\begin{quote}
-Are all studies estimating the same treatment effect, or does the treatment effect vary across studies?
-\end{quote}
-
-This distinction leads to:
-
-\begin{enumerate}
-    \item Fixed-effect models.
-    \item Random-effects models.
-    \item Bayesian meta-analysis.
-    \item Meta-regression.
-    \item IPD meta-analysis frameworks.
-    \item Survival-specific meta-analysis methods.
-\end{enumerate}
+This distinction leads to fixed-effect models, random-effects models, Bayesian meta-analysis, meta-regression, IPD meta-analysis frameworks, and survival-specific meta-analysis methods.
 
 \subsection*{Fixed-Effect Models}
 
@@ -3298,506 +2095,189 @@ This distinction leads to:
 
 A fixed-effect model assumes that every study estimates the same true effect:
 
-\[
-\theta_1
-=
-\theta_2
-=
-\cdots
-=
-\theta_K
-=
-\theta.
-\]
+\[\theta_1=\theta_2=\cdots=\theta_K=\theta.\]
 
-Thus:
+Thus,
 
-\[
-\hat{\theta}_k
-=
-\theta
-+
-\varepsilon_k
-\]
+\[\hat{\theta}_k=\theta+\varepsilon_k,\qquad \varepsilon_k\sim N(0,s_k^2).\]
 
-where
-
-\[
-\varepsilon_k
-\sim
-N(0,s_k^2).
-\]
-
-All variability between studies is assumed to arise from sampling error.
-
-There is no between-study heterogeneity.
+All variability between studies is assumed to arise from sampling error. There is no between-study heterogeneity.
 
 \subsubsection*{Interpretation}
 
-The fixed-effect estimator answers:
-
-\begin{quote}
-What is the common treatment effect shared by all studies?
-\end{quote}
+The fixed-effect estimator answers: what is the common treatment effect shared by all studies?
 
 This interpretation is only valid if all studies truly estimate the same effect.
 
 \subsubsection*{Estimator}
 
-Using inverse-variance weighting:
+Using inverse-variance weighting,
 
-\[
-w_k
-=
-\frac{1/s_k^2}
-{\sum_{j=1}^{K}1/s_j^2},
-\]
+\[w_k=\frac{1/s_k^2}{\sum_{j=1}^{K}1/s_j^2},\]
 
 the pooled estimate is
 
-\[
-\hat{\theta}_{FE}
-=
-\sum_{k=1}^{K}
-w_k\hat{\theta}_k.
-\]
+\[\hat{\theta}_{FE}=\sum_{k=1}^{K}w_k\hat{\theta}_k.\]
 
 Equivalently,
 
-\[
-\hat{\theta}_{FE}
-=
-\frac{
-\sum_{k=1}^{K}
-\hat{\theta}_k/s_k^2
-}{
-\sum_{k=1}^{K}
-1/s_k^2
-}.
-\]
+\[\hat{\theta}_{FE}=\frac{\sum_{k=1}^{K}\hat{\theta}_k/s_k^2}{\sum_{k=1}^{K}1/s_k^2}.\]
 
-\subsubsection*{Variance}
+The variance is
 
-\[
-Var(\hat{\theta}_{FE})
-=
-\frac{1}
-{\sum_{k=1}^{K}
-1/s_k^2}.
-\]
+\[Var(\hat{\theta}_{FE})=\frac{1}{\sum_{k=1}^{K}1/s_k^2}.\]
 
-\subsubsection*{Advantages}
-
-\begin{itemize}
-    \item Simple.
-    \item Computationally efficient.
-    \item Highly precise when homogeneity holds.
-\end{itemize}
-
-\subsubsection*{Limitations}
-
-\begin{itemize}
-    \item Unrealistic in many applications.
-    \item Ignores heterogeneity.
-    \item Can produce overconfident intervals.
-\end{itemize}
+The model is simple, computationally efficient, and highly precise when homogeneity holds. However, it is often unrealistic, ignores heterogeneity, and can produce overconfident intervals.
 
 \subsection*{Random-Effects Models}
 
 \subsubsection*{Motivation}
 
-Clinical studies often differ in:
+Clinical studies often differ in patient populations, inclusion criteria, follow-up length, and treatment implementation.
 
-\begin{itemize}
-    \item Patient populations.
-    \item Inclusion criteria.
-    \item Follow-up length.
-    \item Treatment implementation.
-\end{itemize}
-
-Therefore:
-
-\[
-\theta_1,\ldots,\theta_K
-\]
-
-may not be identical.
-
-Random-effects models explicitly allow study-specific treatment effects.
+Therefore, $\theta_1,\ldots,\theta_K$ may not be identical. Random-effects models explicitly allow study-specific treatment effects.
 
 \subsubsection*{Hierarchical Model}
 
-Level 1:
+The random-effects model has two levels:
 
-\[
-\hat{\theta}_k
-\mid
-\theta_k
-\sim
-N(\theta_k,s_k^2).
-\]
+\[\hat{\theta}_k|\theta_k\sim N(\theta_k,s_k^2)\]
 
-Level 2:
+and
 
-\[
-\theta_k
-\sim
-N(\mu,\tau^2).
-\]
+\[\theta_k\sim N(\mu,\tau^2).\]
 
-where:
+Here $\mu$ is the overall average treatment effect and $\tau^2$ is the between-study variance.
 
-\begin{itemize}
-    \item $\mu$ = overall average treatment effect.
-    \item $\tau^2$ = between-study variance.
-\end{itemize}
-
-The model can be visualized as:
-
-\[
-\mu
-\rightarrow
-\theta_k
-\rightarrow
-\hat{\theta}_k.
-\]
+The model can be visualized as $\mu\rightarrow\theta_k\rightarrow\hat{\theta}_k$.
 
 \subsubsection*{Interpretation}
 
-The pooled estimate answers:
-
-\begin{quote}
-What is the average treatment effect across a population of studies?
-\end{quote}
+The pooled estimate answers: what is the average treatment effect across a population of studies?
 
 This differs fundamentally from the fixed-effect interpretation.
 
 \subsubsection*{Random-Effects Weights}
 
-Weights become:
+Weights become
 
-\[
-w_k
-=
-\frac{1}
-{s_k^2+\tau^2}.
-\]
+\[w_k=\frac{1}{s_k^2+\tau^2}.\]
 
-Compared with fixed-effect models:
-
-\begin{itemize}
-    \item Large studies receive less dominance.
-    \item Small studies receive more weight.
-\end{itemize}
+Compared with fixed-effect models, large studies receive less dominance and small studies receive more weight.
 
 \subsubsection*{Estimating Heterogeneity}
 
-The central quantity is:
-
-\[
-\tau^2.
-\]
-
-Common estimators include:
-
-\begin{itemize}
-    \item DerSimonian-Laird.
-    \item REML (Restricted Maximum Likelihood).
-    \item Paule-Mandel.
-    \item Bayesian estimation.
-\end{itemize}
+The central quantity is $\tau^2$. Common estimators include DerSimonian-Laird, REML (Restricted Maximum Likelihood), Paule-Mandel, and Bayesian estimation.
 
 \subsubsection*{Prediction Intervals}
 
-An important advantage of random-effects models is prediction.
+An important advantage of random-effects models is prediction. A future study effect is modeled as
 
-A future study effect is modeled as:
+\[\theta_{new}\sim N(\mu,\tau^2).\]
 
-\[
-\theta_{new}
-\sim
-N(\mu,\tau^2).
-\]
-
-Prediction intervals describe where future study effects may fall.
-
-Confidence intervals describe uncertainty about:
-
-\[
-\mu.
-\]
-
-Prediction intervals describe uncertainty about:
-
-\[
-\theta_{new}.
-\]
+Confidence intervals describe uncertainty about $\mu$, while prediction intervals describe uncertainty about $\theta_{new}$.
 
 \subsection*{Bayesian Meta-Analysis}
 
 \subsubsection*{Motivation}
 
-Frequentist random-effects models estimate:
-
-\[
-\mu
-\quad\text{and}\quad
-\tau^2.
-\]
-
-Bayesian models treat these quantities as random variables.
+Frequentist random-effects models estimate $\mu$ and $\tau^2$. Bayesian models treat these quantities as random variables.
 
 \subsubsection*{Hierarchical Bayesian Model}
 
-Likelihood:
+The likelihood is
 
-\[
-\hat{\theta}_k
-\mid
-\theta_k
-\sim
-N(\theta_k,s_k^2).
-\]
+\[\hat{\theta}_k|\theta_k\sim N(\theta_k,s_k^2).\]
 
-Study effects:
+The study effects satisfy
 
-\[
-\theta_k
-\mid
-\mu,\tau^2
-\sim
-N(\mu,\tau^2).
-\]
+\[\theta_k|\mu,\tau^2\sim N(\mu,\tau^2).\]
 
-Priors:
+Priors are placed on the hyperparameters:
 
-\[
-\mu
-\sim
-p(\mu),
-\]
+\[\mu\sim p(\mu),\qquad \tau\sim p(\tau).\]
 
-\[
-\tau
-\sim
-p(\tau).
-\]
+The posterior is
 
-Posterior:
+\[p(\mu,\tau,\theta_1,\ldots,\theta_K|Data).\]
 
-\[
-p(\mu,\tau,\theta_1,\ldots,\theta_K
-\mid
-Data).
-\]
-
-\subsubsection*{Advantages}
-
-\begin{itemize}
-    \item Full uncertainty quantification.
-    \item Natural hierarchical modeling.
-    \item Easy incorporation of prior information.
-    \item Flexible extensions.
-\end{itemize}
+Bayesian meta-analysis provides full uncertainty quantification, natural hierarchical modeling, easy incorporation of prior information, and flexible extensions.
 
 \subsubsection*{Posterior Inference}
 
-Posterior means:
+Posterior means such as $E(\mu|Data)$ often serve as pooled estimates.
 
-\[
-E(\mu\mid Data)
-\]
+Posterior credible intervals replace confidence intervals. For example,
 
-often serve as pooled estimates.
-
-Posterior credible intervals replace confidence intervals.
-
-Example:
-
-\[
-P(\mu\in[a,b]\mid Data)=0.95.
-\]
+\[P(\mu\in[a,b]|Data)=0.95.\]
 
 \subsubsection*{Shrinkage}
 
-A key feature is partial pooling.
+A key feature is partial pooling. Extreme study estimates are shrunk toward $\mu$.
 
-Extreme study estimates are shrunk toward:
-
-\[
-\mu.
-\]
-
-The amount of shrinkage depends on:
-
-\begin{itemize}
-    \item Study variance.
-    \item Heterogeneity.
-\end{itemize}
+The amount of shrinkage depends on study variance and heterogeneity.
 
 \subsection*{One-Stage vs Two-Stage Meta-Analysis}
 
 \subsubsection*{Two-Stage Meta-Analysis}
 
-Historically the most common framework.
+Two-stage meta-analysis is historically the most common framework.
 
-Stage 1:
+In stage 1, treatment effects are estimated separately within each study, giving $\hat{\theta}_1,\ldots,\hat{\theta}_K$.
 
-Estimate treatment effects separately:
+In stage 2, the study-specific estimates are pooled using a meta-analysis model.
 
-\[
-\hat{\theta}_1,\ldots,\hat{\theta}_K.
-\]
+The workflow is study analysis followed by meta-analysis.
 
-Stage 2:
-
-Pool estimates using:
-
-\[
-\hat{\theta}_1,\ldots,\hat{\theta}_K.
-\]
-
-Workflow:
-
-\[
-\text{Study Analysis}
-\rightarrow
-\text{Meta-Analysis}.
-\]
-
-\subsubsection*{Advantages}
-
-\begin{itemize}
-    \item Easy to implement.
-    \item Computationally simple.
-    \item Standard software available.
-\end{itemize}
-
-\subsubsection*{Limitations}
-
-\begin{itemize}
-    \item Information loss.
-    \item Difficult interaction modeling.
-    \item Less efficient.
-\end{itemize}
+This approach is easy to implement, computationally simple, and supported by standard software. However, it can lose information, make interaction modeling difficult, and be less efficient.
 
 \subsubsection*{One-Stage Meta-Analysis}
 
-Analyze all participant data simultaneously.
+One-stage meta-analysis analyzes all participant data simultaneously.
 
-General form:
+A general form is
 
-\[
-Y_{ij}
-\sim
-f(\eta_{ij})
-\]
+\[Y_{ij}\sim f(\eta_{ij})\]
 
 with
 
-\[
-\eta_{ij}
-=
-\alpha_j
-+
-\beta_j T_{ij}
-+
-\gamma_j X_{ij}.
-\]
+\[\eta_{ij}=\alpha_j+\beta_jT_{ij}+\gamma_jX_{ij},\]
 
-where:
-
-\begin{itemize}
-    \item \(i\) indexes patients.
-    \item \(j\) indexes studies.
-\end{itemize}
+where $i$ indexes patients and $j$ indexes studies.
 
 Random effects model study variation.
 
-\subsubsection*{Advantages}
-
-\begin{itemize}
-    \item More efficient.
-    \item Easier interaction modeling.
-    \item Better handling of missing data.
-    \item More flexible.
-\end{itemize}
+One-stage models are often more efficient, better for interaction modeling, better for missing data, and more flexible.
 
 \subsubsection*{Why One-Stage Matters}
 
-Many treatment-effect heterogeneity analyses require:
-
-\[
-Treatment
-\times
-Covariate
-\]
-
-interactions.
-
-These are easier to estimate within a one-stage framework.
+Many treatment-effect heterogeneity analyses require treatment-by-covariate interactions. These are easier to estimate within a one-stage framework.
 
 \subsection*{Meta-Regression}
 
 \subsubsection*{Motivation}
 
-Suppose studies differ systematically.
+Suppose studies differ systematically by mean age, biomarker prevalence, treatment duration, or study quality.
 
-Examples:
-
-\begin{itemize}
-    \item Mean age.
-    \item Biomarker prevalence.
-    \item Treatment duration.
-    \item Study quality.
-\end{itemize}
-
-Meta-regression attempts to explain heterogeneity.
+Meta-regression attempts to explain heterogeneity using study-level covariates.
 
 \subsubsection*{Model}
 
-Random-effects meta-regression:
+A random-effects meta-regression can be written as
 
-\[
-\hat{\theta}_k
-=
-\beta_0
-+
-\beta_1 z_k
-+
-u_k
-+
-\varepsilon_k
-\]
+\[\hat{\theta}_k=\beta_0+\beta_1z_k+u_k+\varepsilon_k,\]
 
-where:
+where $z_k$ is a study-level covariate and $u_k\sim N(0,\tau^2)$.
 
-\begin{itemize}
-    \item \(z_k\) is a study-level covariate.
-    \item \(u_k \sim N(0,\tau^2)\).
-\end{itemize}
-
-\subsubsection*{Interpretation}
-
-\[
-\beta_1
-\]
-
-represents how the treatment effect changes as the study-level characteristic changes.
+The coefficient $\beta_1$ represents how the treatment effect changes as the study-level characteristic changes.
 
 \subsubsection*{Ecological Bias}
 
 A major limitation is ecological bias.
 
-Study-level relationships need not equal patient-level relationships.
+Study-level relationships need not equal patient-level relationships:
 
-Example:
-
-\[
-E(Y|X,\text{patient})
-\neq
-E(Y|\bar X,\text{study}).
-\]
+\[E(Y|X,\text{patient})\neq E(Y|\bar X,\text{study}).\]
 
 This is one major motivation for IPD meta-analysis.
 
@@ -3805,128 +2285,37 @@ This is one major motivation for IPD meta-analysis.
 
 \subsubsection*{Traditional Approach}
 
-Historically survival meta-analysis pools:
+Historically, survival meta-analysis pools $\log(HR_k)$.
 
-\[
-\log(HR_k).
-\]
+Let $\hat{\beta}_k=\log(HR_k)$. Then
 
-Model:
-
-\[
-\hat{\beta}_k
-=
-\log(HR_k).
-\]
-
-Then:
-
-\[
-\hat{\beta}_{MA}
-=
-\frac{
-\sum_k
-w_k
-\hat{\beta}_k
-}{
-\sum_k
-w_k
-}.
-\]
+\[\hat{\beta}_{MA}=\frac{\sum_k w_k\hat{\beta}_k}{\sum_k w_k}.\]
 
 \subsubsection*{Limitation}
 
-Hazard ratios assume:
+Hazard ratios assume $HR(t)=HR$, which is the proportional hazards assumption.
 
-\[
-HR(t)=HR.
-\]
-
-This is the proportional hazards assumption.
-
-Violations occur when:
-
-\begin{itemize}
-    \item Curves cross.
-    \item Delayed treatment effects exist.
-    \item Immunotherapy effects emerge later.
-\end{itemize}
+Violations occur when curves cross, delayed treatment effects exist, or immunotherapy effects emerge later.
 
 \subsubsection*{Modern Survival Meta-Analysis}
 
-Increasingly uses:
+Modern survival meta-analysis increasingly uses reconstructed IPD, Kaplan--Meier curves, RMST, and time-varying hazards.
 
-\begin{itemize}
-    \item Reconstructed IPD.
-    \item Kaplan--Meier curves.
-    \item RMST.
-    \item Time-varying hazards.
-\end{itemize}
-
-Examples include:
-
-\begin{itemize}
-    \item MARS.
-    \item Bayesian survival meta-analysis.
-    \item Piecewise exponential models.
-\end{itemize}
+Examples include MARS, Bayesian survival meta-analysis, and piecewise exponential models.
 
 \subsubsection*{Restricted Mean Survival Time}
 
-RMST is defined as:
+RMST is defined as
 
-\[
-RMST(\tau)
-=
-\int_0^\tau S(t)\,dt.
-\]
+\[RMST(\tau)=\int_0^\tau S(t)\,dt.\]
 
-Interpretation:
+It represents expected survival accumulated before time horizon $\tau$.
 
-Expected survival accumulated before time horizon \(\tau\).
+The treatment effect is
 
-Treatment effect:
+\[\Delta_{RMST}=RMST_T-RMST_C.\]
 
-\[
-\Delta_{RMST}
-=
-RMST_T
--
-RMST_C.
-\]
-
-Advantages:
-
-\begin{itemize}
-    \item No proportional hazards assumption.
-    \item Clinically interpretable.
-    \item Robust to crossing survival curves.
-\end{itemize}
-
-\subsubsection*{Current Research Direction}
-
-Modern survival meta-analysis is increasingly moving toward:
-
-\[
-\text{Reconstructed IPD}
-\rightarrow
-\text{Flexible Survival Models}
-\rightarrow
-\text{Clinically Interpretable Estimands}
-\]
-
-rather than simply pooling hazard ratios.
-
-This shift motivates methods such as:
-
-\begin{itemize}
-    \item KM-GPT.
-    \item RESOLVE-IPD.
-    \item MARS.
-    \item Target-population meta-analysis.
-\end{itemize}
-
-which seek to use more of the information contained in published survival studies.
+RMST requires no proportional hazards assumption, is clinically interpretable, and is robust to crossing survival curves.
 
 \section{Extremal Inference}
 
@@ -3934,254 +2323,73 @@ which seek to use more of the information contained in published survival studie
 
 Extremal inference is a framework for statistical inference when the parameter of interest is not uniquely identified.
 
-Rather than estimating a single value:
+Rather than estimating a single value $\theta$, the available data and assumptions only imply that the parameter lies within a feasible set $\Theta$.
 
-\[
-\theta,
-\]
+The goal becomes estimating $\Theta=[\theta_L,\theta_U]$ or, more generally,
 
-the available data and assumptions only imply that the parameter lies within a feasible set:
+\[\Theta=\{\theta:\theta \text{ is compatible with the observed data}\}.\]
 
-\[
-\Theta.
-\]
+Instead of asking what the treatment effect is, extremal inference asks what the smallest and largest treatment effects are that remain consistent with the evidence.
 
-The goal becomes estimating:
-
-\[
-\Theta
-=
-[\theta_L,\theta_U]
-\]
-
-or more generally:
-
-\[
-\Theta
-=
-\{\theta : \theta \text{ is compatible with the observed data}\}.
-\]
-
-Instead of asking:
-
-\begin{quote}
-What is the treatment effect?
-\end{quote}
-
-extremal inference asks:
-
-\begin{quote}
-What is the smallest and largest treatment effect consistent with the evidence?
-\end{quote}
-
-This framework appears throughout:
-
-\begin{itemize}
-    \item Partial identification.
-    \item Missing-data problems.
-    \item Causal inference.
-    \item Sensitivity analysis.
-    \item Robust optimization.
-    \item Distributionally robust inference.
-    \item Reconstruction uncertainty problems.
-\end{itemize}
+This framework appears throughout partial identification, missing-data problems, causal inference, sensitivity analysis, robust optimization, distributionally robust inference, and reconstruction uncertainty problems.
 
 \subsection*{Motivation}
 
-Classical statistical inference assumes that enough information exists to identify:
+Classical statistical inference assumes that enough information exists to identify $\theta$. For example, one might estimate $\hat{\theta}=0.35$.
 
-\[
-\theta.
-\]
+However, many real-world problems are underdetermined. Multiple underlying data-generating processes may explain the same observations.
 
-For example:
+Examples include missing covariates, missing outcomes, aggregate-data reconstruction, unobserved confounding, and subgroup assignment uncertainty.
 
-\[
-\hat{\theta}
-=
-0.35.
-\]
-
-However, many real-world problems are underdetermined.
-
-Multiple underlying data-generating processes may explain the same observations.
-
-Examples include:
-
-\begin{itemize}
-    \item Missing covariates.
-    \item Missing outcomes.
-    \item Aggregate-data reconstruction.
-    \item Unobserved confounding.
-    \item Subgroup assignment uncertainty.
-\end{itemize}
-
-In these situations:
-
-\[
-\text{Data}
-\not\Rightarrow
-\text{Unique Parameter}.
-\]
-
-Instead:
-
-\[
-\text{Data}
-\Rightarrow
-\text{Set of Plausible Parameters}.
-\]
+In these situations, the data do not imply a unique parameter. Instead, the data imply a set of plausible parameters.
 
 \subsection*{Identification vs Partial Identification}
 
 \subsubsection*{Point Identification}
 
-A parameter is point identified if:
+A parameter is point identified if $\Theta=\{\theta\}$. Only one value is compatible with the observed data.
 
-\[
-\Theta
-=
-\{\theta\}.
-\]
-
-Only one value is compatible with the observed data.
-
-Examples:
-
-\begin{itemize}
-    \item Linear regression coefficients.
-    \item Means of fully observed variables.
-    \item Standard treatment effects in randomized trials.
-\end{itemize}
+Examples include linear regression coefficients, means of fully observed variables, and standard treatment effects in randomized trials.
 
 \subsubsection*{Partial Identification}
 
-A parameter is partially identified if:
-
-\[
-|\Theta|>1.
-\]
-
-Many values satisfy the available evidence.
+A parameter is partially identified if $|\Theta|>1$. Many values satisfy the available evidence.
 
 The data only determine bounds:
 
-\[
-\theta_L
-\le
-\theta
-\le
-\theta_U.
-\]
+\[\theta_L\le\theta\le\theta_U.\]
 
 The focus shifts from estimation of a point to estimation of a region.
 
 \subsection*{Identification Regions}
 
-Suppose the parameter of interest is:
+Suppose the parameter of interest is $\theta$. The identification region is
 
-\[
-\theta.
-\]
+\[\Theta=\{\theta:\theta \text{ is consistent with all observed constraints}\}.\]
 
-The identification region is:
+For one-dimensional parameters, $\Theta=[\theta_L,\theta_U]$, where
 
-\[
-\Theta
-=
-\{
-\theta :
-\theta \text{ is consistent with all observed constraints}
-\}.
-\]
-
-For one-dimensional parameters:
-
-\[
-\Theta
-=
-[\theta_L,\theta_U].
-\]
-
-where
-
-\[
-\theta_L
-=
-\inf_{\theta\in\Theta}
-\theta
-\]
-
-and
-
-\[
-\theta_U
-=
-\sup_{\theta\in\Theta}
-\theta.
-\]
+\[\theta_L=\inf_{\theta\in\Theta}\theta,\qquad \theta_U=\sup_{\theta\in\Theta}\theta.\]
 
 These are called the extremal values.
 
 \subsection*{Basic Example}
 
-Suppose:
+Suppose $Y\in[0,1]$ and 20\% of observations are missing.
 
-\[
-Y
-\in
-[0,1].
-\]
+Without additional assumptions, $0\le E(Y)\le1$.
 
-Assume:
+If the observed mean among observed subjects is 0.6, then the sharp bounds become
 
-\[
-20\%
-\]
-
-of observations are missing.
-
-Without additional assumptions:
-
-\[
-0
-\le
-E(Y)
-\le
-1.
-\]
-
-If the observed mean among observed subjects is:
-
-\[
-0.6,
-\]
-
-then the sharp bounds become:
-
-\[
-0.8(0.6)+0.2(0)
-=
-0.48
-\]
+\[0.8(0.6)+0.2(0)=0.48\]
 
 and
 
-\[
-0.8(0.6)+0.2(1)
-=
-0.68.
-\]
+\[0.8(0.6)+0.2(1)=0.68.\]
 
-Thus:
+Thus,
 
-\[
-0.48
-\le
-E(Y)
-\le
-0.68.
-\]
+\[0.48\le E(Y)\le0.68.\]
 
 The parameter is not identified, but the feasible region is.
 
@@ -4191,23 +2399,13 @@ The parameter is not identified, but the feasible region is.
 
 Bounds are sharp if every point inside the interval can be attained by some data-generating process consistent with the assumptions.
 
-Formally:
-
-\[
-\Theta
-=
-[\theta_L,\theta_U].
-\]
-
-Every value inside the interval is feasible.
+Formally, $\Theta=[\theta_L,\theta_U]$, and every value inside the interval is feasible.
 
 Sharp bounds contain exactly the information provided by the assumptions.
 
 \subsubsection*{Non-Sharp Bounds}
 
-Non-sharp bounds are wider than necessary.
-
-They contain impossible values.
+Non-sharp bounds are wider than necessary and contain impossible values.
 
 Researchers generally seek sharp bounds whenever possible.
 
@@ -4215,39 +2413,9 @@ Researchers generally seek sharp bounds whenever possible.
 
 Many extremal inference problems can be written as optimization problems.
 
-Suppose:
+Suppose $\theta=g(X)$ subject to constraints $X\in\mathcal C$. Then
 
-\[
-\theta
-=
-g(X).
-\]
-
-subject to constraints:
-
-\[
-X
-\in
-\mathcal C.
-\]
-
-Then:
-
-\[
-\theta_L
-=
-\min_{X\in\mathcal C}
-g(X)
-\]
-
-and
-
-\[
-\theta_U
-=
-\max_{X\in\mathcal C}
-g(X).
-\]
+\[\theta_L=\min_{X\in\mathcal C}g(X),\qquad \theta_U=\max_{X\in\mathcal C}g(X).\]
 
 This perspective is especially important in reconstruction problems.
 
@@ -4255,43 +2423,11 @@ This perspective is especially important in reconstruction problems.
 
 Many causal parameters are only partially identified.
 
-Suppose:
+Suppose $Y(1)$ and $Y(0)$ are potential outcomes. The average treatment effect is
 
-\[
-Y(1)
-\]
+\[ATE=E[Y(1)-Y(0)].\]
 
-and
-
-\[
-Y(0)
-\]
-
-are potential outcomes.
-
-The average treatment effect is:
-
-\[
-ATE
-=
-E[Y(1)-Y(0)].
-\]
-
-Without randomization or strong assumptions:
-
-\[
-ATE
-\]
-
-may not be point identified.
-
-Instead:
-
-\[
-ATE
-\in
-[\tau_L,\tau_U].
-\]
+Without randomization or strong assumptions, $ATE$ may not be point identified. Instead, $ATE\in[\tau_L,\tau_U]$.
 
 The resulting interval represents all causal effects compatible with the observed data.
 
@@ -4301,334 +2437,100 @@ Sensitivity analysis studies how conclusions change under violations of assumpti
 
 Extremal inference studies all possible values under a fixed set of assumptions.
 
-Sensitivity analysis:
-
-\[
-\text{Assumptions vary}
-\]
-
-Extremal inference:
-
-\[
-\text{Parameter varies}
-\]
-
-within the feasible set implied by fixed assumptions.
+In sensitivity analysis, assumptions vary. In extremal inference, the parameter varies within the feasible set implied by fixed assumptions.
 
 The two approaches are closely related.
 
 \subsection*{Extremal Inference in Meta-Analysis}
 
-Meta-analysis typically assumes each study provides a unique effect estimate.
+Meta-analysis typically assumes each study provides a unique effect estimate. However, reconstruction problems introduce additional uncertainty.
 
-However reconstruction problems introduce additional uncertainty.
+Suppose $g$ denotes a reconstructed dataset. Then treatment effects become $\hat{\tau}(g)$.
 
-Suppose:
+If multiple reconstructions $g_1,\ldots,g_M$ are feasible, then the effect estimate is no longer unique. Instead,
 
-\[
-g
-\]
+\[\tau\in\{\hat{\tau}(g_1),\ldots,\hat{\tau}(g_M)\}.\]
 
-denotes a reconstructed dataset.
+Extremal inference summarizes this uncertainty using
 
-Then treatment effects become:
-
-\[
-\hat{\tau}(g).
-\]
-
-If multiple reconstructions are feasible:
-
-\[
-g_1,\ldots,g_M,
-\]
-
-then the effect estimate is no longer unique.
-
-Instead:
-
-\[
-\tau
-\in
-\{
-\hat{\tau}(g_1),
-\ldots,
-\hat{\tau}(g_M)
-\}.
-\]
-
-Extremal inference summarizes this uncertainty using:
-
-\[
-\tau_L
-=
-\min_g
-\hat{\tau}(g)
-\]
-
-and
-
-\[
-\tau_U
-=
-\max_g
-\hat{\tau}(g).
-\]
+\[\tau_L=\min_g\hat{\tau}(g),\qquad \tau_U=\max_g\hat{\tau}(g).\]
 
 \subsection*{Connection to MAPLE}
 
-In MAPLE:
-
-\[
-G
-=
-\{
-g_1,\ldots,g_M
-\}
-\]
-
-represents a collection of subgroup label assignments consistent with published evidence.
+In MAPLE, $G=\{g_1,\ldots,g_M\}$ represents a collection of subgroup label assignments consistent with published evidence.
 
 Traditional analyses choose one labeling.
 
-Extremal inference instead studies:
+Extremal inference instead studies
 
-\[
-\min_{g\in G}
-\hat{\tau}(g)
-\]
+\[\min_{g\in G}\hat{\tau}(g)\qquad\text{and}\qquad\max_{g\in G}\hat{\tau}(g).\]
 
-and
-
-\[
-\max_{g\in G}
-\hat{\tau}(g).
-\]
-
-These represent:
-
-\begin{itemize}
-    \item Most favorable reconstruction.
-    \item Least favorable reconstruction.
-\end{itemize}
-
-with respect to the treatment effect.
+These represent the least favorable and most favorable reconstructions with respect to the treatment effect.
 
 This is directly connected to current extensions of RESOLVE-IPD.
 
 \subsection*{Monte Carlo Approximation}
 
-In practice:
+In practice, $G$ may be extremely large, so enumerating every reconstruction is impossible.
 
-\[
-G
-\]
+A common approximation is to sample $g_1,\ldots,g_B\sim G$ and compute $\hat{\tau}(g_1),\ldots,\hat{\tau}(g_B)$.
 
-may be extremely large.
+Then approximate
 
-Enumerating every reconstruction is impossible.
+\[\tau_L\approx\min_b\hat{\tau}(g_b),\qquad \tau_U\approx\max_b\hat{\tau}(g_b).\]
 
-A common approximation is:
-
-\[
-g_1,\ldots,g_B
-\sim
-G.
-\]
-
-Compute:
-
-\[
-\hat{\tau}(g_1),
-\ldots,
-\hat{\tau}(g_B).
-\]
-
-Then approximate:
-
-\[
-\tau_L
-\approx
-\min_b
-\hat{\tau}(g_b)
-\]
-
-and
-
-\[
-\tau_U
-\approx
-\max_b
-\hat{\tau}(g_b).
-\]
-
-Potential issue:
-
-The true extremum may never be sampled.
-
-This becomes increasingly problematic as dimensionality grows.
+The issue is that the true extremum may never be sampled. This becomes increasingly problematic as dimensionality grows.
 
 \subsection*{Worst-Case and Best-Case Analysis}
 
-Extremal inference is often described as:
+Extremal inference is often described as best-case and worst-case analysis.
 
-\begin{itemize}
-    \item Best-case analysis.
-    \item Worst-case analysis.
-\end{itemize}
+The best case is $\max\hat{\tau}$, and the worst case is $\min\hat{\tau}$.
 
-Best-case:
-
-\[
-\max
-\hat{\tau}.
-\]
-
-Worst-case:
-
-\[
-\min
-\hat{\tau}.
-\]
-
-These provide robustness guarantees.
-
-If treatment remains beneficial even under the worst-case reconstruction, conclusions become more credible.
+These provide robustness guarantees. If treatment remains beneficial even under the worst-case reconstruction, conclusions become more credible.
 
 \subsection*{Robust Optimization Connection}
 
 Extremal inference has close connections to robust optimization.
 
-Classical estimation:
+Classical estimation can be written as
 
-\[
-\hat{\theta}
-=
-\arg\min
-L(\theta).
-\]
+\[\hat{\theta}=\arg\min L(\theta).\]
 
-Robust optimization:
+Robust optimization instead considers
 
-\[
-\hat{\theta}
-=
-\arg\min_{\theta}
-\sup_{u\in\mathcal U}
-L(\theta,u).
-\]
+\[\hat{\theta}=\arg\min_{\theta}\sup_{u\in\mathcal U}L(\theta,u),\]
 
-where
+where $\mathcal U$ represents uncertainty.
 
-\[
-\mathcal U
-\]
-
-represents uncertainty.
-
-Similarly, extremal inference studies:
-
-\[
-\sup_{\theta\in\Theta}
-\theta
-\]
-
-and
-
-\[
-\inf_{\theta\in\Theta}
-\theta.
-\]
+Similarly, extremal inference studies $\sup_{\theta\in\Theta}\theta$ and $\inf_{\theta\in\Theta}\theta$.
 
 Both frameworks focus on uncertainty sets rather than single models.
 
 \subsection*{Extremal Inference for Survival Analysis}
 
-Suppose:
+Suppose $\tau(g)$ represents a survival estimand under reconstruction $g$.
 
-\[
-\tau(g)
-\]
+Possible estimands include hazard ratios, survival probabilities, RMST differences, and median survival differences.
 
-represents a survival estimand under reconstruction \(g\).
+The extremal problem becomes
 
-Possible estimands include:
-
-\begin{itemize}
-    \item Hazard ratios.
-    \item Survival probabilities.
-    \item RMST differences.
-    \item Median survival differences.
-\end{itemize}
-
-The extremal problem becomes:
-
-\[
-\min_{g\in G}
-\tau(g)
-\]
-
-and
-
-\[
-\max_{g\in G}
-\tau(g).
-\]
+\[\min_{g\in G}\tau(g)\qquad\text{and}\qquad\max_{g\in G}\tau(g).\]
 
 This identifies the full range of treatment effects compatible with the reconstruction constraints.
 
-\subsection*{Why Extremal Inference Matters for the Project}
-
-The central challenge in covariate augmentation is that many reconstructed datasets may satisfy the same aggregate summaries.
-
-For example:
-
-\[
-G
-=
-\{
-g :
-g \text{ matches published evidence}
-\}.
-\]
-
-Current Monte Carlo approaches typically sample from:
-
-\[
-G
-\]
-
-and report averages.
-
-However:
-
-\begin{itemize}
-    \item The true extremal reconstruction may be rare.
-    \item Monte Carlo may never discover it.
-    \item Important treatment-effect variability may be missed.
-\end{itemize}
-
-Extremal inference instead asks:
-
-\begin{quote}
-What is the smallest and largest treatment effect achievable among all feasible reconstructions?
-\end{quote}
-
-This shifts the focus from a single reconstructed dataset to the geometry of the entire feasible reconstruction space.
-
 \subsection*{Key Takeaways}
 
-\begin{enumerate}
-    \item Extremal inference is used when parameters are only partially identified.
-    \item The goal is to characterize feasible regions rather than estimate a single value.
-    \item Identification regions are defined by all values consistent with observed data and assumptions.
-    \item Extremal values are obtained through constrained optimization.
-    \item Sharp bounds contain exactly the information implied by the assumptions.
-    \item Many reconstruction problems naturally lead to partial identification.
-    \item MAPLE already produces a feasible set of subgroup assignments, making extremal inference a natural extension.
-    \item Monte Carlo sampling may fail to identify true extrema in high-dimensional reconstruction spaces.
-    \item Worst-case and best-case analyses provide robustness guarantees.
-    \item Extremal inference is likely to play a central role in future extensions of uncertainty-aware IPD reconstruction.
-\end{enumerate}
+Extremal inference is used when parameters are only partially identified. The goal is to characterize feasible regions rather than estimate a single value.
+
+Identification regions are defined by all values consistent with observed data and assumptions, and extremal values are obtained through constrained optimization.
+
+Sharp bounds contain exactly the information implied by the assumptions.
+
+Many reconstruction problems naturally lead to partial identification. MAPLE already produces a feasible set of subgroup assignments, making extremal inference a natural extension.
+
+Monte Carlo sampling may fail to identify true extrema in high-dimensional reconstruction spaces.
+
+Worst-case and best-case analyses provide robustness guarantees, and extremal inference is likely to play a central role in future extensions of uncertainty-aware IPD reconstruction.
 
 \end{document}
