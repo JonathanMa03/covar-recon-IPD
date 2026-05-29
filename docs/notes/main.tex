@@ -18,6 +18,7 @@
 \usepackage{titlesec}
 \usepackage{setspace}
 \usepackage{microtype}
+\usepackage{parskip}
 
 % -------------------------------------------------
 % Formatting
@@ -71,16 +72,2585 @@
 
 \section{Causally Interpretable Meta-Analysis Combining AD and IPD}
 
+\subsection*{Main Objective}
+
+The paper addresses a major limitation of modern causally interpretable meta-analysis (CIMA).
+Existing CIMA methods require IPD from both \emph{every trial} and \emph{target population}.
+
+In practice, many studies only provide aggregate data (AD), such as \emph{means, SDs, sample sizes, published treatment effects}.
+
+The paper proposes a method that allows IPD and AD to be used together within the CIMA framework, resulting in \textbf{Aggegrate-Matched Synthetic IPD}:
+\[\text{IPD studies}+\text{Aggregate-data studies}=\text{AMSIPD}\]
+for studies that only report aggregate summaries.
+
+\subsection*{Motivation}
+
+Traditional meta-analysis estimates:\[\hat{\theta}=\sum_{s=1}^{m}w_s \hat{\theta}_s\]where weights are usually based on precision (inverse variance) or sample size.
+
+The authors argue that these weights have no \emph{causal interpretation}: A large study receives more weight simply because it is large.
+
+However:
+\begin{itemize}
+    \item Larger studies are not necessarily more representative of a target population.
+    \item Trial sample sizes are often driven by funding and logistics.
+    \item Precision-weighted averages may correspond to no meaningful population.
+\end{itemize}
+
+The goal of CIMA is instead to \textbf{estimate treatment effects in a specific target population}
+
+\subsection*{Traditional Meta-Analysis vs CIMA}
+
+\subsubsection*{Traditional Meta-Analysis}
+
+Target estimand:\[\sum_s w_s \theta_s\]
+This is a weighted average of study effects and may not correspond to any actual target population.
+
+\subsubsection*{CIMA}
+
+Target estimand:\[E[Y^a - Y^{a'} \mid S=0]\]
+where:
+\begin{itemize}
+    \item $S=0$ denotes the target population.
+    \item $a$ and $a'$ denote treatments.
+\end{itemize}
+This is the average treatment effect in a specific target population.
+
+The paper repeatedly emphasizes that traditional meta-analysis estimates effects in a potentially unknown population, whereas CIMA estimates effects in a clearly defined target population.
+
+\subsection*{Observed Data Structure}
+
+For each individual, $O_i$ takes one of three forms: 
+\begin{itemize}
+    \item Target Population Sample: $(X_i, S_i = 0)$
+    \item IPD Trial: $(X_i, A_i, Y_i, S_i)$ where:
+    \begin{itemize}
+        \item $X_i$ = covariates
+        \item $A_i$ = treatment
+        \item $Y_i$ = outcome
+        \item $S_i$ = study label
+    \end{itemize}
+    \item Aggregate Only Trial: $(S_i, \bar X_S^A, \bar Y_S^A)$ including treatment-arm sample sizes (S), covariate summaries (X), outcome summaries (Y) with no individual-level observations available
+\end{itemize}
+
+\subsection*{CIMA Identification Assumptions}
+
+The AMSIPD procedure inherits all assumptions from Dahabreh et al.'s CIMA framework.
+
+\subsubsection*{1. Consistency}
+
+Observed outcome equals potential outcome under received treatment: $Y = Y^A$. 
+
+No Hawthorne effects or treatment ambiguities.
+
+\subsubsection*{2. Conditional Exchangeability}
+
+Potential outcomes are independent of treatment assignment given covariates and study.
+
+Because trials are randomized: $ Y^a \perp A \mid X,S$
+
+\subsubsection*{3. Positivity of Treatment Assignment}
+
+Every individual could receive either treatment: $P(A=a \mid X,S)>0$
+
+\subsubsection*{4. Conditional Exchangeability Between Study and Target Population}
+
+A key transportability assumption is that for all studies,\[E[Y^a-Y^{a'} \mid X,S=0]=E[Y^a-Y^{a'} \mid X,S=s]\]
+After conditioning on measured covariates, treatment effects are the same across studies and the target population.
+
+All treatment-effect heterogeneity is assumed captured by measured covariates.
+
+\subsubsection*{5. Positivity of Trial Participation}
+
+Every covariate pattern in the target population must appear in each study.\[P(S=s \mid X)>0\]
+
+Target population must overlap study populations. The authors note that \emph{many practical applications violate this assumption}.
+
+\subsection*{Additional AMSIPD Assumptions}
+
+The paper introduces stronger assumptions to reconstruct IPD from aggregate summaries.
+
+\subsubsection*{Shared Covariance Structure}
+
+Covariates may have different means across studies: $ E[X_s]\neq E[X_t]$
+
+But covariance matrices are assumed identical $ \Sigma_s=\Sigma_t$ for all studies.
+
+\subsubsection*{Shared Outcome Model}
+
+Outcome generation follows $Y = h(A,X)+\epsilon$ with:
+\begin{itemize}
+    \item same functional form across studies
+    \item same treatment-covariate relationship
+\end{itemize}
+This assumption is crucial because outcome generation for aggregate-only studies relies entirely on relationships learned from IPD studies.
+
+\subsection*{AMSIPD Construction}
+
+The procedure consists of two major stages:
+
+\subsection*{Step 1: Generate Aggregate-Matched Covariates}
+
+The goal is to reconstruct $X_{\text{AMSIPD}}$ for aggregate-only studies.
+
+\subsubsection*{Homogeneous Version}
+
+Assume all IPD studies and the target population share a common joint covariate distribution.
+
+Estimate $f(X)$ using nonparametric density estimation. The paper uses:
+\begin{itemize}
+    \item Gaussian kernels for continuous variables
+    \item Discrete kernels for categorical variables
+\end{itemize}
+implemented through the \texttt{R} package \texttt{np}.
+
+Synthetic individuals are generated by:
+\begin{enumerate}
+    \item Sampling an observed individual.
+    \item Drawing a synthetic observation from the estimated kernel density around that individual.
+\end{enumerate}
+
+\subsubsection*{Heterogeneous Version}
+
+Instead of pooling all studies:
+\begin{enumerate}
+    \item Estimate a separate density for each study.
+    \item Randomly select a study.
+    \item Generate a synthetic individual from that study's density.
+\end{enumerate}
+The purpose is to preserve between-study heterogeneity while relaxing common covariance assumptions.
+
+\subsubsection*{Matching Aggregate Constraints}
+\begin{enumerate}
+    \item Synthetic data must reproduce published summaries.
+    \item Categorical variables are matched exactly using rejection sampling.
+    \item Continuous variables are recentered and rescaled to match means and SDs.
+    \item Treatment assignment is then randomized according to original trial allocation.
+\end{enumerate}
+
+\subsection*{Step 2: Generate Aggregate-Matched Outcomes}
+
+After generating covariates $X_{\text{AMSIPD}}$, the outcomes are generated.
+
+Fit:\[Y=\beta_0+\alpha A+\beta X+\gamma AX+\epsilon\] using studies with IPD. Then predict synthetic outcomes:
+\[\hat Y_{\text{AMSIPD}}=\hat\beta_0+\hat\alpha A+\hat\beta X+\hat\gamma AX\]
+Alternative models may be used, such as nonparametric regression or random forests.
+
+\subsection*{Variance Constraint Problem}
+
+Predicted outcomes may become too variable:\[Var(\hat Y_{\text{AMSIPD}})>Var(Y_{\text{observed}})\]
+
+Simply rescaling outcomes would destroy learned relationships. Instead, the paper proposes \textbf{Quadratic Programming} to fit the outcome model under variance constraints.
+
+The goal is to minimize prediction error while ensuring:\[Var(\hat Y_{\text{AMSIPD}})\le Var(Y_{\text{observed}})\] within every study-treatment arm.
+
+\emph{This was the preferred implementation in the simulations.}
+
+\subsection*{Multiple Imputation Interpretation}
+
+AMSIPD contains randomness, therefore:
+\begin{itemize}
+    \item Generate multiple AMSIPD datasets.
+    \item Analyze each separately.
+    \item Combine estimates using \emph{Rubin's rules}.
+\end{itemize}
+
+\subsubsection*{Rubin's Rules}
+
+When multiple synthetic or imputed datasets are generated, each dataset is analyzed separately and the resulting estimates are combined using Rubin's rules.
+
+Suppose \(M\) datasets are generated. For dataset \(m\), let $\hat{\theta}_m$ denote the estimate of the target parameter, and let $U_m$ denote its estimated variance.
+
+The pooled estimate is\[\bar{\theta}=\frac{1}{M}\sum_{m=1}^{M}\hat{\theta}_m.\]
+
+The within- and between-imputation variance are \[\bar{U}=\frac{1}{M}\sum_{m=1}^{M}U_m \qquad B=\frac{1}{M-1}\sum_{m=1}^{M}(\hat{\theta}_m-\bar{\theta})^2.\]
+The total variance is\[T=\bar{U}+\left(1+\frac{1}{M}\right)B.\] with resulting standard error\[SE(\bar{\theta})=\sqrt{T}.\]
+Rubin's rules combine uncertainty within each reconstructed dataset with uncertainty across reconstructed datasets. In the AMSIPD setting, this allows variation across synthetic IPD reconstructions to contribute to the final standard error.
+
+The paper uses $M=5$ reconstructions.
+
+\subsection*{Simulation Scenarios}
+
+Four overlap structures were considered.
+\begin{itemize}
+    \item Good Overlap: target population lies inside the union of study populations
+    \item Target population lies between studies, which requries interpolation and violates positivity
+    \item Minimal Overlap: requires extrapolation and expected to perform poorly
+    \item Aggregate only studies overlap strongly with target population, which tests whether AMSIPD can recover information lost by excluding said studies
+\end{itemize}
+
+\subsection*{Main Findings}
+
+\subsubsection*{Case Study}
+
+AMSIPD generally outperformed IPD-only analyses and standard weighting approaches.
+
+Outcome-model estimators performed almost as well as full-IPD analyses.
+
+\subsubsection*{Important Observation}
+
+For weighting estimators, AMSIPD often performed better than even the full-IPD version. The authors attribute this to reduction of extreme weights, implicit shrinkage towards aggregate summaries, and improved positivity behavior.
+
+\subsection*{Key Takeaways}
+
+\begin{enumerate}
+    \item Traditional meta-analysis lacks a clear target-population interpretation.
+    \item CIMA provides causally interpretable target-population effects.
+    \item Existing CIMA requires complete IPD.
+    \item AMSIPD extends CIMA to mixed IPD + aggregate-data settings.
+    \item Synthetic IPD are generated by matching aggregate summaries while borrowing structure from IPD studies.
+    \item Multiple AMSIPD datasets are treated similarly to multiple imputation.
+    \item Performance is strongest when overlap assumptions are approximately satisfied.
+    \item Positivity remains the dominant challenge.
+\end{enumerate}
+
 \section{Comparing Methods for Estimating PSTE in IPD Meta-Analysis}
+
+\subsection*{Main Objective}
+
+The paper studies how to estimate patient-specific treatment effects (PSTEs) in an IPD meta-analysis when many baseline covariates are available.
+
+The central question is \emph{Can variable selection or shrinkage methods improve estimation of treatment-covariate interactions and patient-specific treatment effects compared to the standard IPD meta-analysis approach?}
+
+The standard approach in many IPD meta-analyses is to include all treatment-covariate interaction terms in the model. The authors investigate whether this leads to overfitting and whether shrinkage methods provide better performance.
+
+\subsection*{Motivation}
+
+IPD meta-analysis provides advantages over aggregate-data meta-analysis because:
+
+\begin{itemize}
+    \item It uses patient-level information.
+    \item It has greater power to detect treatment effect heterogeneity.
+    \item It avoids aggregation bias.
+    \item It allows direct estimation of treatment-covariate interactions.
+\end{itemize}
+
+However, modern clinical studies often collect many baseline covariates. Including all treatment-covariate interactions may increase complexity and variance, lead to overfitting, or reduce precision of PTSE estimates.
+
+Conversely, omitting important interactions can miss clinically important effect modifiers. The paper investigates methods that balance these competing concerns.
+
+\subsection*{One-Stage vs Two-Stage IPD Meta-Analysis}
+
+The paper briefly reviews the two major frameworks.
+
+\subsubsection*{Two-Stage Approach}
+
+\begin{enumerate}
+    \item Stage 1: Analyze each study separately.
+    \item Stage 2: Pool study-specific estimates using standard meta-analysis.
+\end{enumerate}
+This is a familiar framework and has simpler computation, but is less flexible and less efficient.
+
+\subsubsection*{One-Stage Approach}
+
+All patient-level data are modeled simultaneously and patients remain clustered within studies.
+
+This is more flecible and allows easier modeling of treatment-covariate interactions since information borrowing is stronger.
+
+The paper adopts a one-stage framework throughout.
+
+\subsection*{Covariate Types}
+
+The authors distinguish three categories of covariates.
+
+\subsubsection*{Nuisance Covariates}
+
+Covariates unrelated to outcome. Examples are variables with no prognostic value or treatment interaction.
+
+\subsubsection*{Prognostic Factors}
+
+Covariates associated with outcome but not treatment effect modification. These affect baseline risk but not treatment benefit.
+
+\subsubsection*{Effect Modifiers}
+
+Covariates that interact with treatment. These are the primary target of the analysis since effect modifiers determine which patients benefit more or less from treatment.
+
+\subsection*{General Statistical Framework}
+
+For patient $i$ in study $j$:
+\begin{itemize}
+    \item $t_i$ denotes treatment assignment.
+    \item $x_i$ denotes baseline covariates.
+    \item $y_i$ denotes outcome.
+\end{itemize}
+Continuous and binary outcomes are considered. The primary modeling framework is a generalized linear mixed model (GLMM).
+
+For continuous outcomes:\[y_{ij}\sim N(\mu_{ij}, \sigma^2)\] with linear predictor\[\mu_{ij}=a_j+b_j x_i+c_j x_i^{EM} t_i+d_j t_i.\]
+Components:
+\begin{itemize}
+    \item $a_j$: study-specific intercept.
+    \item $b_j$: main covariate effects.
+    \item $c_j$: treatment-covariate interactions.
+    \item $d_j$: treatment effect.
+\end{itemize}
+Random effects: $d_j\sim N(\delta,\tau^2) \qquad b_{j,m}\sim N(\beta_m,\tau_{\beta,m}^2) \qquad c_{j,m}\sim N(\gamma_m,\tau_{\gamma,m}^2)$
+
+For binary outcomes ($y_{ij}\sim Bernoulli(p_{ij})$) with\[\log\left(\frac{p_{ij}}{1-p_{ij}}\right)=a_j+b_j x_i+c_j x_i^{EM} t_i+d_j t_i.\]
+
+\subsection*{Methods Compared}
+
+Seven approaches are compared:
+
+\subsubsection*{GLMM-Full}
+
+The standard approach with all treatment-covariate interactions are included without selection or shrinkage. The model with the most flexibility and least risk of excluding true effect modifiers but downsides of highest overfitting risk and larger variance
+
+\subsubsection*{GLMM-Oracle}
+
+Includes only the true interactions used in data generation. Only used as a theoretical benchmark and not achievable in practice, reprecenting best possible performance
+
+\subsubsection*{Stepwise Regression}
+
+Uses information criteria to add or remove interaction terms. The paper used backwards elimination. This is the most straightforwards and computationally simple, but has poor reproducibility and stability, along with having selection bias.
+
+\subsubsection*{LASSO}
+
+Uses an $\ell_1: \sum |\beta_j|$ penalty to regularize and performs variable selection automatically.
+
+\subsubsection*{Ridge Regression}
+
+Uses an $\ell_2: \sum \beta_j^2$ penalty to shrink coefficients while retaining all variables, and doesn't perform variable selection
+
+\subsubsection*{Adaptive LASSO}
+
+Modification of LASSO that applies variable-specific penalties where large coefficients recieve less shrinkage. Designed to improve variable selection consistency/
+
+\subsubsection*{Bayesian LASSO}
+
+Bayesian analogue of LASSO which integrates shrinkage into bayesian inference with Laplace priors on interaction coefficients.
+
+\subsubsection*{Stochastic Search Variable Selection (SSVS)}
+
+Bayesian model averaging approach. Uses indicator variables $\lambda_m$ to determine whether each interaction enters the model. Rather than selecting a single model, SSVS averages across many models. Outputs posterior inclusion probabilities.
+
+\subsection*{Simulation Design}
+
+The authors conduct extensive simulations with both continuous and binary outcomes considered. Data generation varies according to number of studies, patients, effect modifiers, effect heterogeneity, and outcome type.
+
+Scenarioes inclue few true effect modifiers, many nuisance covariates, large and small sample sizes, and different heterogeneity levels.
+
+\subsection*{Performance Metrics}
+
+The primary evaluation metric is \[MSE=E[(\hat{\tau}(PSTE)-\tau(PSTE))^2]\]
+
+Additional metrics include bias, calibration, and accuracy of treatment effect prediction. The emphasis is on individualized treatment estimation rather than merely average treatment effects.
+
+\subsection*{Simulation Results}
+
+The most important finding: Shrinkage methods consistently outperform the standard full model and stepwise regression.
+
+Major observations:
+
+\begin{enumerate}
+    \item Shrinkage methods generally have lower MSE.
+    \item LASSO, adaptive LASSO, ridge, Bayesian LASSO, and SSVS perform similarly well.
+    \item Stepwise regression performs poorly.
+    \item Stepwise regression is often worse than including all interactions.
+    \item Benefits of shrinkage increase when many candidate interactions exist.
+    \item Benefits increase when true effect modifiers are sparse.
+\end{enumerate}
+
+\subsection*{Real Data Applications}
+
+Two IPD meta-analysis datasets are analyzed.
+
+\subsubsection*{Cardiology Dataset}
+
+Compared new-generation drug-eluting to bare-metal stents using several baseline characteristics to estimate treatment-covariate interactions
+
+\subsubsection*{Psychiatry Dataset}
+
+Performed meta-analysis of antidepressant treatments and estimated patient-specific treatment benefits using baseline covariates. The real-data examples largely confirm simulation findings that different shrinkage methods produce similar conclusions and stepwise regression remains unstable.
+
+\subsection*{Discussion}
+
+The paper argues that patient-specific treatment effect estimation is fundamentally a high-dimensional prediction problem. Treatment-covariate interactions are difficult to estimate and overfitting is a major concern, and importantly shrinkage is generally preferable to hard variable selection.
+
+The authors specifically recommend to \emph{use shrinkage methods when estimating patient-specific treatment effects in IPD meta-analysis} and \emph{avoid step-wise regression}.
+
+The simulations assume covariate information is complete, the model is correctly specified, and there are no missing outcomes, but doesn't address covariate reconstruction, missing covariate data, or aggregate and survival data. The focus is entirely on variable selection and shrinkage once complete IPD are already available.
+
+\subsection*{Main Takeaways}
+
+\begin{enumerate}
+    \item IPD meta-analysis is particularly valuable for estimating treatment effect heterogeneity.
+    \item Treatment-covariate interactions are difficult to estimate reliably.
+    \item Including all interactions can lead to overfitting.
+    \item Shrinkage methods substantially improve patient-specific treatment effect estimation.
+    \item LASSO, adaptive LASSO, ridge, Bayesian LASSO, and SSVS all perform well.
+    \item Stepwise regression consistently performs poorly.
+    \item Bayesian and frequentist shrinkage approaches yield broadly similar conclusions.
+    \item When many candidate effect modifiers are present, shrinkage should be preferred over conventional variable selection.
+\end{enumerate}
 
 \section{IPD Meta-Analysis vs AD Meta-Analysis}
 
+\subsection*{Main Objective}
+
+The paper is a methodology review that systematically compares results obtained from:
+
+\begin{itemize}
+    \item Individual Participant Data Meta-Analysis (IPD-MA)
+    \item Aggregate Data Meta-Analysis (AD-MA)
+\end{itemize}
+
+The goal is to determine:
+
+\begin{enumerate}
+    \item How often IPD-MA and AD-MA produce similar conclusions.
+    \item How often they disagree.
+    \item Whether disagreements depend on:
+    \begin{itemize}
+        \item effect measures used,
+        \item trials included,
+        \item participants included,
+        \item treatment effect modifier analyses versus main treatment effect analyses.
+    \end{itemize}
+\end{enumerate}
+
+The review seeks empirical evidence rather than theoretical arguments regarding the value of IPD.
+
+\subsection*{Background}
+
+Meta-analysis can be conducted using two different levels of information.
+
+\subsubsection*{Aggregate Data (AD)}
+
+Uses published summaries such as means, SDs, hazard ratios, odds ratios, relative risks, and event counts. Researchers do not have access to patient-level observations.
+
+\subsubsection*{Individual Participant Data (IPD)}
+
+Uses the original observations from every participant enrolled in each study.
+
+Advantages often claimed for IPD include:
+
+\begin{itemize}
+    \item Greater statistical power.
+    \item Consistent outcome definitions and inclusion/exclusion criteria.
+    \item Improved subgroup analyses.
+    \item Better handling of missing data and more flexible time-to-event analyses.
+    \item Improved quality control.
+\end{itemize}
+
+However, IPD-MA requires access to original datasets, dataset harmonization, and greater computational effort. The paper investigates whether these advantages translate into materially different conclusions.
+
+\subsection*{Research Questions}
+
+The review asks:
+
+\begin{enumerate}
+    \item Do IPD-MA and AD-MA lead to the same statistical conclusions?
+    \item If they differ, how large are the differences?
+    \item Are differences more common when studying treatment effect modifiers?
+    \item Are differences caused by differences in included studies, participants, or analytic methods?
+\end{enumerate}
+
+\subsection*{Search Strategy and Inclusion Criteria}
+
+Searches were performed in Cochrane library, MEDLINE, and Embase through January 2016. Studie included had to have randomized trial meta-analyses, direct comparison between IPD-MA and AD-MA, and studies were excluded if sufficient numerical information was unavailable.
+
+\subsection*{Study Characteristics}
+
+The review identified 39 eligible studies. Across these studies, 190 IPD versus AD comparisons were extracted. Quality assessment classified studies as no important flaws (29 studies, 74\%) and possibly important flaws (10 studies, 26\%)
+
+For median comparisons, there were roughly 4 comparisons per study, and both IPD-MA and AD-MA had equal participants (1225) while the trials per IPD-MA were 6, and for AD-MA was 7.
+
+\subsection*{Classification of Comparisons}
+
+Comparisons were categorized according to:
+
+\subsubsection*{Type of Analysis}
+
+Main treatment effect: 144 comparisons (76\%)
+
+Treatment effect modifier analysis: 46 comparisons (24\%)
+
+\subsubsection*{Data Equivalence}
+
+The review examined whether identical trials were used, identical participants were used, and identical effect measures were used. This distinction is important because disagreements may arise from available data or methodology.
+
+\subsection*{Standardization of Effect Measures}
+
+Different studies reported different effect measures. To enable comparison, estimates were transformed to a common scale using standardized z-scores. The review then compared direction, magnitude, and significance of effects, supplemented with scatterplots and limits-of-agreement analyses
+
+\subsection*{Primary Outcome: Agreement in Statistical Significance}
+
+The primary comparison examined statistical significance agreement in both IPD-MA and AD-MA at the two-sided 5\% significance level.
+
+\subsection*{Main Findings}
+
+Analysis found that four out of five comparisons led to the same statistical conclusion.
+
+Among the 38 disagreements 28 comparisons showed a significant result using IPD-MA that was not detected by AD-MA and 10 comparisons showed a significant result using AD-MA that was not detected by IPD-MA.
+
+Therefore, when disagreement occurred, IPD-MA was more likely to detect a significant effect. This suggests increased power or improved modeling flexibility in IPD analyses.
+
+\subsection*{Direction of Effect}
+
+Even when significance agreed, direction sometimes differed. Among the 152 agreements, 23 comparisons showed differing directions of effect. Thus agreement in significance does not necessarily imply agreement in estimated treatment effect.
+
+\subsection*{Main Treatment Effects vs Effect Modifiers}
+
+A key result concerns treatment effect modifier analyses. For main treatment effects, IPD-MA more frequently identified significant effects. For effect modifier analyses, no consistent advantage for either method, and results were substantially more variable.
+
+The authors emphasize that treatment effect modification is more difficult to estimate reliably. This is one of the major advantages often cited for IPD.
+
+\subsection*{Identical Data Comparisons}
+
+One of the most important findings is that disagreements remained even when same outcomes, participants, or trials were analyzed. Therefore differences between IPD-MA and AD-MA are not explained solely by differences in available data.
+
+Instead, differences can arise because IPD permits different modeling strategies for mdoeling, missing data, and subgroup analyses.
+
+\subsection*{Limits of Agreement Analysis}
+
+The review examined agreement in standardized effect estimates, ratio effect estimates, and standard errors.
+
+Average differences were generally small but limits of agreement were wide, so average agreement alone may mask important discrepancies.
+
+\subsection*{Treatment Effect Modifier Analyses}
+
+The paper highlights an important distinction: Main treatment effects are often estimable from aggregate data, however treatment effect modifiers require patient-level variation (Age, Sex, Biomarker).
+
+Aggregate summaries frequently lack sufficient information to estimate these relationships. Consequently IPD may offer larger benefits in these settings. The review notes that empirical evidence remains limited.
+
+\subsection*{Authors' Conclusions}
+
+In many cases, IPD-MA and AD-MA lead to similar results and conclusions. However, IPD provides opportunities for additional, more detailed, and potentially more appropriate analyses.
+
+The authors recommend:
+
+\begin{enumerate}
+    \item Conduct an AD-MA first.
+    \item Evaluate whether important limitations remain.
+    \item Pursue IPD collection only if additional benefits justify the cost.
+\end{enumerate}
+
+\subsection*{Key Takeaways}
+
+\begin{enumerate}
+    \item IPD-MA and AD-MA agree approximately 80\% of the time.
+    \item Disagreement occurs in roughly 20\% of comparisons.
+    \item When disagreement occurs, IPD-MA is more likely to detect statistically significant effects.
+    \item Differences persist even when identical trials and participants are analyzed.
+    \item Average agreement is high, but limits of agreement are wide.
+    \item Treatment effect modifier analyses remain one of the strongest motivations for IPD.
+    \item The primary value of IPD is not simply greater power, but the ability to perform richer and more flexible analyses.
+    \item Researchers should weigh the additional benefits of IPD against its substantial resource requirements.
+\end{enumerate}
+
 \section{KM-GPT}
+
+\subsection*{Main Objective}
+
+The paper introduces KM-GPT, a fully automated pipeline for reconstructing individual patient data (IPD) from Kaplan--Meier (KM) survival plots.
+
+The primary goal is to eliminate the manual steps traditionally required for IPD reconstruction, including curve digitization, axis calibration, risk table transcription, and data extraction. 
+
+The authors position KM-GPT as the first fully automated end-to-end system for KM-based IPD reconstruction, combining image processing, LLM reasoning, and iterative survival reconstruction algorithms.
+
+\subsection*{Motivation}
+
+Time-to-event outcomes are common throughout clinical trials, epidemiology, and public health. Although Kaplan--Meier curves are routinely published, underlying IPD are rarely released because of patient privacy concerns
+
+As a result, researchers often have access only to limited summary statistics, risk tables, and KM plots, which creates barriers for meta analysis or follow-up studies (subgroup, assumption, etc).
+
+\subsection*{Existing Reconstruction Workflow}
+
+Historically, reconstruction involves two stages:
+
+\subsubsection*{Stage 1: Digitization}
+
+Convert visual KM curves into numerical coordinates using software like \texttt{DigitizeIt, ScanIt, SurvDigitizeR} which require axis calibration, point selection, and other preprocessing to be done manually.
+
+\subsubsection*{Stage 2: Survival Reconstruction}
+
+After digitization, event times are reconstructed, followed by censoring indicators, and generated pseudo-IPD. The dominant approach is the iKM algorithm of Guyot et al. Subsequent methods, including IPDfromKM, build on this framework.
+
+\subsection*{Limitations of Existing Methods}
+
+The authors identify several shortcomings, like human error induced by manual intervention, poor reproducibility, and limited support for non-SVG plots.
+
+\subsection*{Core Contribution}
+
+KM-GPT performs figure preprocessing, information extraction, and reconstruction without requiring manual intervention. The key innovation is the use of GPT-5 as a reasoning engine that integrates visual and textual information simultaneously.
+
+\subsection*{Overall Architecture}
+
+The system consists of three major modules:
+
+\begin{enumerate}
+    \item Image Processing Unit.
+    \item Multi-Modality Processing Unit (MMPU).
+    \item IPD Extraction and Reconstruction Unit.
+\end{enumerate}
+
+\subsection*{Image Processing Unit}
+
+Purpose: prepare KM figures for downstream extraction. Tasks include: noise removal, figure cleaning, resolution enhancement, region identification. The objective is to standardize heterogeneous KM plots before OCR and reasoning. The paper emphasizes that poor image quality is a major source of reconstruction error.
+
+\subsection*{Multi-Modality Processing Unit (MMPU)}
+
+The MMPU is presented as the primary methodological innovation. Its purpose is to transform unstructured visual information into structured data.
+\[[\text{KM Plot, Risk Table, OCR}] \rightarrow [\text{Axis Config, Meta-data, Number of Curves}]\]
+
+\subsection*{Stage 1: OCR Extraction}
+
+The paper uses different image-processing strategies depending on the region.
+
+\subsubsection*{Risk Tables}
+
+Adaptive Gaussian thresholding is used since risk tables usually have uneven contrast, small fonts, and complex backgrounds. 
+
+\subsubsection*{Axis Labels}
+
+Global thresholding is used since axis labels are isolated and high contrast, making them easy to segment.
+
+
+\subsection*{Stage 2: GPT-5 Multi-Modal Reasoning}
+
+The image is encoded and passed to GPT-5 together with OCR-derived text.
+
+GPT-5 performs visual and contextual reasoning, along with cross-model validation. It is tasked with identifying group labels, treatment arms, matching risk tables to curves, resolving overlapping graphical elements, and extracting confidence intervals.
+
+The paper argues that these tasks are difficult using OCR or computer vision alone. GPT-5 provides semantic understanding that traditional approaches lack.
+
+\subsection*{Output of MMPU}
+
+The final output is a structured JSON object containing all plot data, and this representation is passed to the reconstruction stage.
+
+\subsection*{IPD Extraction and Reconstruction}
+
+After parameter extraction, KM-GPT reconstructs IPD. The workflow contains several stages:
+
+\subsubsection*{Axis Calibration}
+
+Pixel coordinates are transformed into time values and survival probabilities using extracted axis boundaries, which creates a mapping from image space to survival-analysis space.
+
+\subsubsection*{Curve Isolation}
+
+The system identifies pixels belonging to each survival curve through greedy path tracing and K-mediods clustering to recover ordered trajectories
+
+\subsubsection*{Handling Overlapping Curves}
+
+For overlapping curves, kNN classification is applied and confidence scores are assigned, which alleviates ambiguous curve assignments
+
+\subsubsection*{Survival Reconstruction}
+
+Once digitized coordinates are obtained, the Guyot iKM algorithm is applied and risk tables are inforporated, and other survival information is handled accordingly.
+
+The algorithm attempts to ensure risk-set consistency and agreement with published curves and risk tables.
+
+\subsection*{Final Reconstructed Dataset}
+
+The reconstructed IPD contains survival time, event indicator, and treatment label, stored in CSV format.
+
+\subsection*{Validation Procedure}
+
+To verify reconstruction quality:
+
+\begin{enumerate}
+    \item Reconstructed IPD are generated.
+    \item KM curves are re-estimated from the reconstructed IPD.
+    \item Reconstructed KM curves are compared to original KM curves.
+\end{enumerate}
+
+This serves as an internal validation step.
+
+\subsection*{Web Interface}
+
+The paper describes a public web application which involves a RAG/LMAR agent whose role is restricted to model-specific troubleshooting and support.
+
+\subsection*{Synthetic Data Evaluation}
+
+The authors first evaluate KM-GPT using simulated survival datasets.
+
+Three parameters (sample size, median survival time, censoring rate) were varied into three levels, producing 27 parameter combinations. 20 replicated were generated, resulting in 540 total curves to work with. 
+
+\subsection*{Synthetic Survival Generation}
+
+Survival times were generated from exponential distributions. Right censoring was introduced through randomly assigned censoring times. Observed times were defined by the minimum of event time and censoring times.
+
+\subsection*{Parameter Extraction Results}
+
+Out of 540 KM plots, 538 were successfully processed, with the two failures noted as digitization errors. Axis, tick, and risk table were fully accurate. 
+
+\subsection*{Comparison with SurvdigitizeR}
+
+The authors compare KM-GPT with \texttt{SurvdigitizeR}, under the assumption that risk tables are manually removed (limitation of the package). They found that KM-GPT reduced failure rate by 0.29, attreibuted to digitization error. The authors attribute KM-GPT's advantage to its automated preprocessing and multi-modal reasoning.
+
+\subsection*{Reconstruction Accuracy}
+
+Reconstructed IPD were compared with ground-truth survival data. The primary metric was absolute error (AE=0.005) in survival probabilities. Note that error variance increased in late follow-up and there was adverse tail behavior, attributed to stochastic reconstruction error.
+
+\subsection*{Integrated Absolute Error}
+
+Overall curve fidelity was evaluated using Integrated Absolute Error (IAE=0.018):\[IAE=\int |S_{\text{truth}}(t)-S_{\text{reconstructed}}(t)|\,dt\]where lower values are closer agreement.
+
+\subsection*{Key Conclusions}
+
+\begin{enumerate}
+    \item KM-GPT is the first fully automated KM-to-IPD reconstruction pipeline.
+    \item The combination of OCR and GPT-5 reasoning enables extraction from heterogeneous KM plots.
+    \item Automated risk-table extraction is a major advantage over existing approaches.
+    \item Reconstruction accuracy remains high across diverse survival settings.
+    \item Performance substantially exceeds traditional semi-manual digitization tools.
+    \item Reconstruction errors are concentrated in extreme tail regions where visual information is weakest.
+    \item The resulting IPD are suitable for downstream survival analysis, subgroup analysis, and evidence synthesis.
+\end{enumerate}
 
 \section{Meta-Analysis of Reconstructed Survival Data (MARS)}
 
-\section{Transportaable Inference Using Summary Statistics Under Covariate Shift}
+\subsection*{Main Objective}
 
+The paper proposes a new aggregate-data meta-analysis framework for time-to-event outcomes called \textbf{Meta-Analysis of Reconstructed Survival Data (MARS)}
+
+The primary goal is to perform survival meta-analysis using richer survival information than conventional hazard-ratio-based approaches. Rather than relying exclusively on reported hazard ratios, MARS incorporates:
+
+\begin{enumerate}
+    \item Reconstructed survival data from published Kaplan--Meier curves.
+    \item Reported hazard ratios.
+    \item Published survival probabilities at specific time points.
+\end{enumerate}
+
+The authors argue that reconstructed survival data provide substantially more information than hazard ratios alone and allow meta-analysis without requiring the proportional hazards assumption.
+
+\subsection*{Motivation}
+
+Individual participant data (IPD) meta-analysis is widely regarded as the gold standard for survival meta-analysis.
+
+However, IPD are rarely available, most published studies report only aggregate data, and less than 1\% of published meta-analyses include IPD.
+
+Consequently, most evidence synthesis relies on aggregate-data methods.The standard aggregate-data approach uses study-level hazard ratio estimates. This introduces several limitations.
+
+\subsubsection*{Dependence on the Proportional Hazards Assumption}
+
+Conventional meta-analysis assumes: $HR(t)=HR$ for all time.
+
+However, survival curves frequently cross, treatment effects may vary over time, and immunotherapy studies often violate proportional hazards. The authors cite evidence suggesting proportional hazards violations occur in approximately one-fifth of treatment comparisons.
+
+\subsubsection*{Information Loss}
+
+Many studies report Kaplan--Meier curves, survival probabilities, and log-rank statistics, but not hazard ratios.
+
+Traditional approaches either exclude these studies or convert information into hazard ratios using additional assumptions.
+
+\subsubsection*{Limited Reporting}
+
+Hazard ratios alone do not directly describe survival outcomes. The authors argue that clinicians often care more about survival curves than hazard ratios.
+
+\subsection*{Central Idea}
+
+The key innovation is to treat reconstructed survival data as an intermediate between AD and IPD. The authors view reconstructed survival data as a rich source of information that can be incorporated directly into a Bayesian hierarchical model.
+Rather than reducing studies to a single hazard ratio estimate, MARS models reconstructed survival trajectories.
+
+\subsection*{Three Types of Data}
+
+MARS combines three different survival-data sources:
+\begin{itemize}
+    \item Type 1: Reconstructed (pseudo) survival data obtained from Kaplan--Meier curves
+    \item Type 2: Published hazard ratios after log-transformation along with standard errors
+    \item Type 3: Published survival probabilities at particular time points.
+\end{itemize}
+
+\subsection*{Modeling Framework}
+
+MARS uses a Bayesian hierarchical model. The hazard function is modeled using a piecewise exponential structure. Time is partitioned into intervals $I_1,\ldots,I_J$ within each interval $h(t)=\lambda_j$ is constant which yields a flexible approximation to arbitrary hazard functions.
+
+\subsection*{Piecewise Hazard Model}
+
+For interval $I_j=(t_{j-1},t_j ]$ the hazard is $h(t)=\lambda_j$. The cumulative hazard becomes:\[H(t)=\sum_{l=1}^{j-1}\lambda_l |I_l|+\lambda_j(t-t_{j-1}).\]
+The survival function is:\[S(t)=\exp[-H(t)].\]This allows for non-proportional and time variation.
+
+\subsection*{Modeling Treatment Effects}
+
+Treatment effects are allowed to vary over time. Instead of $HR(t)=HR$ the model allows:\[HR(t)=\exp(\beta_j)\] within each interval. Thus: $\beta_1,\beta_2,\ldots,\beta_J$ represent interval-specific log hazard ratios, which directly relaxes the proportional hazards assumption.
+
+\subsection*{Temporal Smoothing}
+
+The interval-specific treatment effects are not estimated independently.
+
+Instead, an AR(1) prior is imposed, ie $Corr(\beta_j, \beta_{j-1})\ne 0$ which prevents highly unstable interval-specific estimates. The resulting hazard-ratio function changes smoothly over time.
+
+\subsection*{Hierarchical Structure}
+
+Study-specific effects are treated hierarchically, so the model accounts for within- and between- differences, creating a random-effects meta-analysis framework. Studies with longer follow-up contribute more information naturally through the likelihood. The authors emphasize that study weighting emerges automatically through the hierarchical model rather than being manually imposed.
+
+\subsection*{Likelihood Contributions}
+
+Each data type contributes differently:
+\begin{itemize}
+    \item Type 1: Reconstructed survival times contribute through the survival likelihood, having the most information
+    \item Type 2: Reported ratios and variance estimates are incorporated directly into the likelihood
+    \item Type 3: Published survival probabilities contribute through the estimated survival function.
+\end{itemize}
+
+\subsection*{Bayesian Inference}
+
+Inference is performed using MCMC. Posterior samples provide HRs, survival probabilities and times, and RMST. Credible intervals are also made available.
+
+\subsection*{Summary Measures}
+
+One major advantage of MARS is the ability to estimate clinically interpretable quantities.
+
+The survival function $S(t)$ can be estimated at any time point.
+
+Median survival is defined through $S(t_{MS})=0.5$, equivalently $H(t_{MS})=\log(2)$. Because MARS estimates the cumulative hazard function, median survival is obtained directly.
+
+\subsubsection*{Restricted Mean Survival Time (RMST)}
+
+The paper strongly emphasizes RMST. RMST up to time horizon $\tau$ is defined as $RMST(\tau)=E[\min(T,\tau)]$, equivalently: \[RMST(\tau)=\int_0^\tau S(u)\,du.\]
+RMST represents expected survival time accumulated before time horizon \(\tau\). This is good since it doesn't need proportional PH to hold and is more interpretable than HRs.
+
+\subsection*{Theoretical Results}
+
+The paper establishes asymptotic properties.
+
+\subsubsection*{Consistency}
+
+Under regularity conditions (sample sizes and number of studies increases),  the estimators converge to the true parameter values, meaning HR and other survival estimates are consistent.
+
+\subsubsection*{Relative Efficiency}
+
+The paper compares MARS with IPD meta-analysis. MARS is never more efficient than full IPD but approaches IPD asymptotically. As both sample sizes and number of studies grows, the variance of MARS approaches the variance of IPD meta-analysis.
+
+\subsection*{Simulation Study 1: Proportional Hazards}
+
+The first simulation assumes proportional hazards. 13 studies with weibull baseline hazard, constant treatment effect, and random censoring are characterized. For data availability, assume some studies have reconstructed data, some have KM curves, and some have survival probabilities. The authors compare MARS, IPD, and AD.
+
+\subsubsection*{Results}
+
+MARS correctly recovered a nearly constant hazard ratio function. Relative efficiency compared to IPD is 1.22 indicating modest efficiency loss.
+
+\subsection*{Simulation Study 2: Non-Proportional Hazards}
+
+The second simulation introduces time-varying treatment effects, where the HR changes over time and survival curves eventually cross (intentionally violating PH).
+
+\subsubsection*{Results}
+
+Conventional hazard-ratio meta-analysis performs poorly, while MARS remains accurate.
+
+\subsection*{Acute Myeloid Leukemia Application}
+
+The motivating application examines Minimal Residual Disease (MRD) in acute myeloid leukemia. The data consists of 64 studies with 8033 patients, and available information includes reconstructued KM data and published survival curves/hazard ratios.
+
+\subsubsection*{Main Findings}
+
+MRD-negative patients consistently showed better disease-free survival. The estimated 5-year survival for negative and positive was 0.65 and 0.25 respectively, and the RMST was 3.73 and 2.06 years respectively. The application demonstrates how MARS can generate clinically interpretable survival summaries beyond hazard ratios.
+
+\subsection*{Advantages of MARS}
+
+The authors highlight several advantages.
+
+\begin{enumerate}
+    \item Uses reconstructed survival data directly.
+    \item Incorporates multiple forms of survival evidence simultaneously.
+    \item Relaxes the proportional hazards assumption and produces time-varying hazard-ratio estimates.
+    \item Estimates survival probabilities, median survival, RMST.
+    \item Reduces selection bias by allowing inclusion of studies lacking hazard ratios.
+    \item Approaches IPD efficiency asymptotically.
+\end{enumerate}
+
+\subsection*{Limitations}
+
+Several limitations are acknowledged.
+
+\begin{itemize}
+    \item Reconstruction quality depends on KM reconstruction accuracy.
+    \item Efficiency remains lower than full IPD.
+    \item Piecewise modeling requires interval specification.
+    \item Time-varying hazard estimation may be sensitive in sparse regions.
+    \item MCMC introduces additional computational burden.
+\end{itemize}
+
+\subsection*{Key Takeaways}
+
+\begin{enumerate}
+    \item Reconstructed survival data can serve as an intermediate information source between aggregate data and IPD.
+    \item MARS integrates reconstructed survival data, hazard ratios, and survival probabilities into a unified Bayesian framework.
+    \item The method avoids reliance on proportional hazards.
+    \item Time-varying treatment effects can be estimated directly.
+    \item RMST is a central reporting metric and is valid regardless of proportional hazards.
+    \item MARS achieves performance close to IPD meta-analysis while using only aggregate-level information.
+    \item The framework substantially broadens the scope of survival meta-analysis beyond conventional hazard-ratio pooling.
+\end{enumerate}
+
+\section{RESOLVE-IPD}
+
+\subsection*{Main Objective}
+
+The paper develops RESOLVE-IPD, a unified framework for reconstructing individual patient data (IPD) from published oncology trials and conducting uncertainty-aware subgroup meta-analysis.
+
+The framework addresses two major limitations in existing reconstruction methods:
+
+\begin{enumerate}
+    \item Reconstruction inaccuracies caused by digitization errors and unrealistic censoring assumptions.
+    \item Inability to reliably recover subgroup-level IPD when only aggregate subgroup statistics are reported.
+\end{enumerate}
+
+To address these issues, RESOLVE-IPD introduces three major methodological components:
+
+\begin{enumerate}
+    \item VEC-KM (Vector Kaplan--Meier Extraction)
+    \item CEN-KM (Censoring-Informed Kaplan--Meier Reconstruction)
+    \item MAPLE (Marginal Assignment of Plausible Subgroup Labels and Evidence Propagation)
+\end{enumerate}
+
+Together these components form an end-to-end workflow for high-fidelity IPD reconstruction, subgroup label recovery, and uncertainty quantification, which allows for richer downstream analysis.
+
+\subsection*{Motivation}
+
+IPD are critical for treatment effect estimation and followup studies like subgroup and meta-analysis, but are rarely publically available due to data ethics, so research must rely on published KM curves, risk tables, and subgroup summaries. The paper argues that existing reconstruction methods contain methodological weaknesses that can substantially bias downstream analyses.
+
+\subsection*{Problems with Existing IPD Reconstruction Methods}
+
+The authors identify two broad classes of problems:
+\begin{itemize}
+    \item Digitization Error from traditional workflows (human + floating point)
+    \item Uniform Censoring Assumption: The dominant iKM algorithm assumes censoring is uniform within intervals, which is unrealistic:
+    \begin{itemize}
+        \item Patients are often censored at scheduled visits
+        \item Administrative censoring occurs at specific times
+        \item Dropout patterns are not uniform
+    \end{itemize}
+\end{itemize}
+
+
+\subsection*{Additional Challenge: Subgroup Reconstruction}
+
+Many oncology publications report overall KM curves and subgroup statistics but not subgroup specific KM curves (in example with PD-L1 high vs low) creating a non-identifiable problem.
+
+Multiple pat
+
+Multiple patient-level subgroup assignments may reproduce the same:
+
+\begin{itemize}
+    \item Hazard ratio.
+    \item Median overall survival.
+    \item Confidence interval.
+\end{itemize}
+
+Therefore:
+
+\begin{quote}
+There is no unique subgroup reconstruction.
+\end{quote}
+
+The paper emphasizes that this uncertainty must be quantified and propagated into downstream analyses.
+
+\subsection*{Overview of RESOLVE-IPD}
+
+The framework consists of two major stages.
+
+\subsubsection*{Stage 1}
+
+High-fidelity IPD reconstruction.
+
+Modules:
+
+\begin{itemize}
+    \item VEC-KM.
+    \item CEN-KM.
+\end{itemize}
+
+Output:
+
+\[
+(T_i,\delta_i,A_i)
+\]
+
+where:
+
+\begin{itemize}
+    \item \(T_i\) = survival time.
+    \item \(\delta_i\) = event indicator.
+    \item \(A_i\) = treatment group.
+\end{itemize}
+
+\subsubsection*{Stage 2}
+
+Uncertainty-aware subgroup recovery.
+
+Module:
+
+\begin{itemize}
+    \item MAPLE.
+\end{itemize}
+
+Output:
+
+\[
+G_{\text{MAPLE}}
+\]
+
+a set of plausible subgroup label assignments.
+
+These outputs are then used for:
+
+\begin{itemize}
+    \item Meta-analysis.
+    \item RMST estimation.
+    \item Hazard-ratio estimation.
+    \item Survival comparison.
+\end{itemize}
+
+\subsection*{VEC-KM}
+
+\subsubsection*{Purpose}
+
+Reduce digitization error by extracting information directly from vector graphics.
+
+Instead of raster images, VEC-KM uses:
+
+\begin{itemize}
+    \item SVG files.
+    \item Native vector paths embedded in PDFs.
+\end{itemize}
+
+Because vector graphics contain exact drawing instructions, extraction is independent of image resolution.
+
+\subsubsection*{Advantages}
+
+Compared with pixel-based methods:
+
+\begin{itemize}
+    \item No manual calibration.
+    \item No rounding artifacts.
+    \item Higher coordinate precision.
+    \item Better censor-mark detection.
+\end{itemize}
+
+The paper reports precision up to six decimal places.
+
+\subsubsection*{Core Steps}
+
+\paragraph{Step 1: KM Curve Extraction}
+
+Identify all line segments.
+
+Select the longest connected paths as candidate survival curves.
+
+\paragraph{Step 2: Axis Calibration}
+
+Locate x- and y-axes.
+
+Construct mappings between:
+
+\begin{itemize}
+    \item Pixel space.
+    \item Time.
+    \item Survival probability.
+\end{itemize}
+
+\paragraph{Step 3: Censor-Mark Detection}
+
+Identify remaining short vector segments.
+
+Classify them as censoring marks based on:
+
+\begin{itemize}
+    \item Shape.
+    \item Proximity to KM curves.
+\end{itemize}
+
+Each censor mark is projected onto the time axis to recover exact censoring times.
+
+\subsection*{CEN-KM}
+
+\subsubsection*{Purpose}
+
+Reconstruct IPD while explicitly incorporating censoring information.
+
+This replaces the traditional uniform-censoring assumption.
+
+\subsubsection*{Key Innovations}
+
+\paragraph{Explicit Censoring Times}
+
+Rather than estimating censoring indirectly, CEN-KM uses censoring times extracted by VEC-KM.
+
+\paragraph{Overlapping Censor Marks}
+
+Clinical KM plots often contain overlapping censor symbols.
+
+A single visible mark may represent multiple censored patients.
+
+Existing methods generally ignore this phenomenon.
+
+CEN-KM explicitly models overlapping censor events.
+
+\subsubsection*{Algorithmic Strategy}
+
+For each KM interval:
+
+\begin{enumerate}
+    \item Count observed censor marks.
+    \item Generate candidate event counts.
+    \item Evaluate possible event-censor combinations.
+    \item Increment overlapping censors when necessary.
+    \item Select the configuration that best reproduces the published survival drop.
+\end{enumerate}
+
+\subsubsection*{Risk-Table Alignment}
+
+When a reported number-at-risk value is encountered:
+
+\begin{itemize}
+    \item Reconstructed risk sets are compared with published values.
+    \item Censor counts are adjusted.
+    \item Exact risk-table consistency is enforced.
+\end{itemize}
+
+\subsubsection*{Advantages}
+
+Compared with iKM:
+
+\begin{itemize}
+    \item Uses explicit censoring information.
+    \item Handles overlapping censors.
+    \item Corrects integer-rounding issues.
+    \item Produces more accurate survival curves.
+\end{itemize}
+
+\subsection*{MAPLE}
+
+\subsubsection*{Purpose}
+
+Recover subgroup labels when subgroup KM curves are unavailable.
+
+MAPLE stands for:
+
+\begin{quote}
+Marginal Assignment of Plausible Subgroup Labels and Evidence Propagation
+\end{quote}
+
+\subsubsection*{Key Idea}
+
+The paper explicitly rejects the idea of finding a single "correct" subgroup labeling.
+
+Instead:
+
+\[
+G_{\text{MAPLE}}
+=
+\{
+g :
+g \text{ satisfies published evidence}
+\}
+\]
+
+where:
+
+\begin{itemize}
+    \item \(g\) denotes a patient-level subgroup assignment.
+    \item Multiple solutions are allowed.
+\end{itemize}
+
+Thus MAPLE characterizes a feasible set rather than a point estimate.
+
+\subsubsection*{Inputs}
+
+MAPLE uses:
+
+\begin{itemize}
+    \item Reconstructed overall IPD.
+    \item Published subgroup sample sizes.
+    \item Published hazard ratios.
+    \item Published median survival values.
+    \item Published confidence intervals.
+\end{itemize}
+
+\subsubsection*{Optimization Objective}
+
+MAPLE searches for subgroup label assignments that reproduce:
+
+\[
+\tau^{tgt}
+\]
+
+where target quantities include:
+
+\begin{itemize}
+    \item Hazard ratios.
+    \item Median overall survival.
+    \item Confidence intervals.
+\end{itemize}
+
+Assignments minimizing reconstruction error are retained.
+
+\subsubsection*{Refinement Using Low-Fidelity KM Curves}
+
+If subgroup KM curves exist only as raster images:
+
+\begin{itemize}
+    \item Approximate subgroup IPD are reconstructed.
+    \item Candidate labelings are filtered.
+\end{itemize}
+
+Only labelings whose subgroup KM curves remain within the reported uncertainty bands are retained.
+
+The refined set is denoted:
+
+\[
+G_{\text{MAPLE}}^*
+\]
+
+\subsubsection*{Interpretation}
+
+The output is not a single subgroup assignment.
+
+Instead:
+
+\[
+G_{\text{MAPLE}}
+=
+\{
+g_1,g_2,\ldots,g_M
+\}
+\]
+
+where every labeling is consistent with the available evidence.
+
+The resulting variability quantifies subgroup-reconstruction uncertainty.
+
+\subsection*{Deterministic vs Optimization Pathways}
+
+The paper distinguishes two subgroup-recovery pathways.
+
+\subsubsection*{Deterministic Pathway}
+
+Used when subgroup KM curves are available.
+
+Scenarios:
+
+\begin{enumerate}
+    \item Target subgroup KM curve exists directly.
+    \item KM subtraction can recover the missing subgroup.
+\end{enumerate}
+
+Produces the most reliable subgroup IPD.
+
+\subsubsection*{Optimization Pathway}
+
+Used when only aggregate subgroup summaries are available.
+
+Employs MAPLE.
+
+Produces an ensemble of plausible labelings.
+
+\subsection*{Evidence Propagation}
+
+A central theme of the paper is uncertainty propagation.
+
+Traditional reconstruction methods produce:
+
+\[
+\text{One reconstruction}
+\]
+
+and proceed as if it were truth.
+
+RESOLVE-IPD instead produces:
+
+\[
+G_{\text{MAPLE}}
+=
+\{
+g_1,\ldots,g_M
+\}
+\]
+
+and propagates uncertainty through all downstream analyses.
+
+Examples include:
+
+\begin{itemize}
+    \item Hazard ratios.
+    \item RMST.
+    \item Meta-analysis.
+    \item Survival probabilities.
+\end{itemize}
+
+The authors argue this yields more honest inference.
+
+\subsection*{Esophageal Cancer Application}
+
+The framework is applied to advanced esophageal squamous cell carcinoma.
+
+Focus:
+
+\[
+\text{PD-L1 Low}
+\]
+
+population.
+
+Trials included:
+
+\begin{itemize}
+    \item KEYNOTE-181.
+    \item ATTRACTION-3.
+    \item ESCORT.
+    \item Additional immunotherapy studies.
+\end{itemize}
+
+Objectives:
+
+\begin{itemize}
+    \item Reconstruct subgroup survival data.
+    \item Estimate treatment effects.
+    \item Quantify uncertainty induced by subgroup reconstruction.
+\end{itemize}
+
+\subsection*{Main Findings}
+
+\subsubsection*{VEC-KM}
+
+Produced highly accurate coordinate extraction.
+
+Vector-based extraction substantially reduced digitization error.
+
+\subsubsection*{CEN-KM}
+
+Improved recovery of censoring patterns.
+
+Produced survival curves that closely matched published KM plots.
+
+\subsubsection*{MAPLE}
+
+Successfully recovered plausible subgroup labelings.
+
+Generated multiple data-compatible reconstructions.
+
+Demonstrated substantial uncertainty in subgroup assignment.
+
+\subsubsection*{Meta-Analysis}
+
+After uncertainty propagation:
+
+\begin{itemize}
+    \item Immunotherapy showed benefit relative to chemotherapy.
+    \item Significant effects were particularly evident between 6 and 12 months.
+\end{itemize}
+
+\subsection*{Main Contributions}
+
+\begin{enumerate}
+    \item Introduces vector-based KM extraction through VEC-KM.
+    \item Eliminates the uniform-censoring assumption through CEN-KM.
+    \item Explicitly models overlapping censor marks.
+    \item Introduces MAPLE for subgroup-label reconstruction.
+    \item Treats subgroup reconstruction as a non-identifiable problem.
+    \item Produces a feasible set of subgroup assignments rather than a single solution.
+    \item Propagates reconstruction uncertainty into downstream meta-analysis.
+    \item Demonstrates the framework in a biomarker-defined oncology setting.
+\end{enumerate}
+
+\section{Transportable Inference Using Target Population Summary Statistics Under Covariate Shift}
+
+\subsection*{Main Objective}
+
+The paper studies transportability when:
+
+\begin{itemize}
+    \item Individual-level data are available from a source population.
+    \item Only summary statistics of covariates are available from a target population.
+\end{itemize}
+
+The goal is to perform valid statistical inference for the target population despite the absence of target individual-level data.
+
+The authors focus on estimating population quantities in the target population while accounting for:
+
+\begin{enumerate}
+    \item Covariate shift between source and target populations.
+    \item Uncertainty in the reported target summary statistics.
+\end{enumerate}
+
+A major contribution of the paper is that it explicitly incorporates uncertainty from target summary statistics into transportability procedures.
+
+\subsection*{Motivation}
+
+Most existing transportability methods require:
+
+\begin{itemize}
+    \item Individual-level source data.
+    \item Individual-level target data.
+\end{itemize}
+
+Examples include:
+
+\begin{itemize}
+    \item Generalizability methods.
+    \item Inverse probability weighting.
+    \item Transportability weighting.
+    \item Doubly robust transport estimators.
+\end{itemize}
+
+However, in many practical settings:
+
+\begin{itemize}
+    \item Privacy regulations prohibit access to target individual-level data.
+    \item Only aggregate demographic summaries are available.
+    \item Registry data may provide means, proportions, and standard deviations rather than patient-level observations.
+\end{itemize}
+
+The paper addresses this setting directly.
+
+\subsection*{Framework}
+
+Let:
+
+\begin{itemize}
+    \item \(Y\) denote the outcome.
+    \item \(X\) denote covariates in the source population.
+    \item \(Y^*\) denote the outcome in the target population.
+    \item \(X^*\) denote covariates in the target population.
+\end{itemize}
+
+The parameter of interest is:
+
+\[
+\mu^*
+=
+E(Y^*)
+\]
+
+the mean outcome in the target population.
+
+\subsection*{Covariate Shift Assumption}
+
+The paper assumes covariate shift.
+
+The target distribution satisfies:
+
+\[
+f^*(y,x)
+=
+f(y,x)w(x)
+\]
+
+where:
+
+\begin{itemize}
+    \item \(f(y,x)\) is the source joint distribution.
+    \item \(f^*(y,x)\) is the target joint distribution.
+    \item \(w(x)\) is a density-ratio function.
+\end{itemize}
+
+Interpretation:
+
+\begin{itemize}
+    \item Covariate distributions may differ.
+    \item Conditional outcome models remain unchanged.
+\end{itemize}
+
+Therefore:
+
+\[
+f^*(y|x)
+=
+f(y|x).
+\]
+
+The paper treats this as the fundamental transportability assumption.
+
+\subsection*{Target Mean Representation}
+
+Under covariate shift:
+
+\[
+\mu^*
+=
+E\{w(X)Y\}.
+\]
+
+This representation motivates weighting-based transport estimators.
+
+The problem therefore becomes estimating:
+
+\[
+w(x)
+=
+\frac{f^*(x)}
+     {f(x)}.
+\]
+
+The difficulty is that:
+
+\begin{itemize}
+    \item Source individual-level covariates are observed.
+    \item Target individual-level covariates are unavailable.
+\end{itemize}
+
+Only target summary statistics are observed.
+
+\subsection*{Available Information}
+
+The target population contributes:
+
+\[
+\bar{\Phi}^*
+=
+\frac{1}{m}
+\sum_{j=1}^{m}
+\Phi(X_j^*)
+\]
+
+where:
+
+\[
+\Phi(X)
+\]
+
+is a vector of known transformations of the covariates.
+
+Examples include:
+
+\begin{itemize}
+    \item Means.
+    \item Variances.
+    \item Higher-order moments.
+    \item Interaction summaries.
+\end{itemize}
+
+Only these summaries are available.
+
+The raw observations:
+
+\[
+X_1^*,\ldots,X_m^*
+\]
+
+are not observed.
+
+\subsection*{Entropy Balancing Transportability}
+
+The first proposed approach extends entropy balancing to the transportability setting.
+
+\subsubsection*{Core Idea}
+
+Construct weights:
+
+\[
+w_i
+\]
+
+for source observations such that:
+
+\[
+\sum_{i=1}^{n}
+w_i \Phi(x_i)
+=
+\bar{\Phi}^*.
+\]
+
+Thus the weighted source moments exactly match target moments.
+
+\subsubsection*{Optimization Problem}
+
+Entropy balancing solves:
+
+\[
+\min
+\sum_{i=1}^{n}
+w_i \log(w_i)
+\]
+
+subject to:
+
+\[
+\sum_{i=1}^{n}w_i = 1
+\]
+
+and
+
+\[
+\sum_{i=1}^{n}
+w_i \Phi(x_i)
+=
+\bar{\Phi}^*.
+\]
+
+Interpretation:
+
+Among all weight vectors satisfying moment constraints, choose the one closest to uniform weighting.
+
+\subsubsection*{Resulting Weight Form}
+
+The solution takes the exponential-tilting form:
+
+\[
+w_i
+=
+\frac{\exp\{\lambda^\top \Phi(x_i)\}}
+     {\sum_{j=1}^{n}
+      \exp\{\lambda^\top \Phi(x_j)\}}
+\]
+
+for some Lagrange multiplier vector \(\lambda\).
+
+This is one of the key mathematical results of the paper.
+
+\subsection*{Transportability Estimator}
+
+After obtaining weights:
+
+\[
+\hat{\mu}_{EB}
+=
+\sum_{i=1}^{n}
+w_i y_i.
+\]
+
+This estimator transports the source outcome distribution to the target population.
+
+\subsection*{Asymptotic Theory for Entropy Balancing}
+
+A major contribution is asymptotic inference.
+
+The paper proves:
+
+\[
+\sqrt{n}
+(\hat{\mu}_{EB}-\mu^*)
+\]
+
+is asymptotically normal.
+
+This permits:
+
+\begin{itemize}
+    \item Confidence intervals.
+    \item Hypothesis testing.
+    \item Variance estimation.
+\end{itemize}
+
+\subsection*{Variance Estimation Challenge}
+
+Existing transportability methods often assume target summaries are fixed.
+
+However:
+
+\[
+\bar{\Phi}^*
+\]
+
+is estimated from a finite target sample.
+
+Therefore:
+
+\[
+Var(\bar{\Phi}^*)
+\neq 0.
+\]
+
+Ignoring this source of variability leads to:
+
+\begin{itemize}
+    \item Underestimated standard errors.
+    \item Invalid confidence intervals.
+\end{itemize}
+
+This motivates the paper's variance-correction methodology.
+
+\subsection*{Variance Estimator}
+
+The authors derive an asymptotic variance estimator that accounts for:
+
+\begin{enumerate}
+    \item Source sampling variability.
+    \item Weight estimation variability.
+    \item Target-summary uncertainty.
+\end{enumerate}
+
+An important contribution is that the variance estimator only requires:
+
+\begin{itemize}
+    \item Source individual-level data.
+    \item Target summary statistics.
+\end{itemize}
+
+No target individual-level observations are needed.
+
+\subsection*{Limitation of Entropy Balancing}
+
+Entropy balancing requires:
+
+\[
+\log\{w(x)\}
+\]
+
+to be representable as a linear combination of:
+
+\[
+\Phi(x).
+\]
+
+Specifically:
+
+\[
+\log\{w(x)\}
+=
+\lambda^\top \Phi(x).
+\]
+
+This assumption may be restrictive.
+
+Potential problems include:
+
+\begin{itemize}
+    \item Nonlinear covariate shift.
+    \item High-order interactions.
+    \item Complex target distributions.
+\end{itemize}
+
+When these occur:
+
+\begin{itemize}
+    \item Moment matching may be insufficient.
+    \item Entropy balancing may be biased.
+\end{itemize}
+
+\subsection*{Flexible Covariate-Shift Modeling}
+
+To overcome these limitations, the paper develops a second method.
+
+Instead of assuming:
+
+\[
+\log\{w(x)\}
+=
+\lambda^\top \Phi(x),
+\]
+
+the density ratio is modeled as:
+
+\[
+w(x)
+=
+\pi(x;\alpha)
+\]
+
+where:
+
+\[
+\alpha
+\]
+
+is an unknown parameter vector.
+
+This permits much richer specifications.
+
+Examples include:
+
+\begin{itemize}
+    \item Nonlinear models.
+    \item Interaction models.
+    \item Flexible semiparametric structures.
+\end{itemize}
+
+\subsection*{Augmented Objective Function}
+
+A key challenge is estimating:
+
+\[
+\alpha
+\]
+
+without observing target individual-level covariates.
+
+The paper proposes an augmented optimization criterion.
+
+The criterion:
+
+\begin{itemize}
+    \item Matches target moments.
+    \item Accounts for uncertainty in target summaries.
+\end{itemize}
+
+This augmentation is the key methodological innovation beyond entropy balancing.
+
+\subsection*{Model Checking}
+
+The paper develops a specification test for:
+
+\[
+\pi(x;\alpha).
+\]
+
+The resulting test statistic is shown to converge to a:
+
+\[
+\chi^2
+\]
+
+distribution under the null hypothesis.
+
+Purpose:
+
+Determine whether the chosen density-ratio model adequately captures covariate shift.
+
+This provides a formal diagnostic unavailable in standard entropy balancing.
+
+\subsection*{Relationship Between Methods}
+
+The paper shows:
+
+Entropy balancing is a special case of the proposed framework.
+
+Specifically:
+
+\[
+\log\{\pi(x;\alpha)\}
+=
+\alpha^\top \Phi(x)
+\]
+
+reduces the flexible method to entropy balancing.
+
+Thus:
+
+\begin{itemize}
+    \item Entropy balancing is nested within the proposed framework.
+    \item The proposed method is strictly more general.
+\end{itemize}
+
+\subsection*{Efficiency Results}
+
+The paper establishes several theoretical comparisons.
+
+When entropy balancing is correctly specified:
+
+\[
+\log\{w(x)\}
+=
+\lambda^\top \Phi(x),
+\]
+
+the proposed estimator is asymptotically at least as efficient as entropy balancing.
+
+When entropy balancing is misspecified:
+
+\begin{itemize}
+    \item Entropy balancing may become inconsistent.
+    \item The proposed estimator remains consistent if \(\pi(x;\alpha)\) is correctly specified.
+\end{itemize}
+
+This is one of the paper's main theoretical advantages.
+
+\subsection*{Simulation Studies}
+
+The simulations evaluate:
+
+\begin{itemize}
+    \item Bias.
+    \item Variance.
+    \item Coverage probability.
+    \item Mean squared error.
+\end{itemize}
+
+Scenarios include:
+
+\begin{enumerate}
+    \item Correctly specified entropy balancing.
+    \item Misspecified entropy balancing.
+    \item Nonlinear covariate shift.
+    \item Different levels of target-summary uncertainty.
+\end{enumerate}
+
+\subsubsection*{Main Findings}
+
+When entropy balancing is correctly specified:
+
+\begin{itemize}
+    \item Both methods perform well.
+    \item Similar bias and coverage.
+\end{itemize}
+
+When entropy balancing is misspecified:
+
+\begin{itemize}
+    \item Entropy balancing becomes biased.
+    \item Coverage deteriorates.
+\end{itemize}
+
+The proposed method remains:
+
+\begin{itemize}
+    \item Consistent.
+    \item Approximately unbiased.
+    \item Properly calibrated.
+\end{itemize}
+
+The advantage becomes more pronounced as covariate shift becomes increasingly nonlinear.
+
+\subsection*{SEER Breast Cancer Application}
+
+The methods are applied to:
+
+\[
+\text{Surveillance, Epidemiology, and End Results (SEER)}
+\]
+
+breast cancer data.
+
+Purpose:
+
+Estimate target-population outcomes when only summary statistics are available from the target population.
+
+The application demonstrates:
+
+\begin{itemize}
+    \item Practical implementation.
+    \item Variance correction.
+    \item Flexible transportability modeling.
+\end{itemize}
+
+The authors show that accounting for uncertainty in target summaries materially affects inference.
+
+Confidence intervals become wider after incorporating target-summary uncertainty.
+
+\subsection*{Key Insights}
+
+A recurring theme throughout the paper is:
+
+\begin{quote}
+Target summary statistics should not be treated as fixed quantities.
+\end{quote}
+
+Instead:
+
+\[
+\bar{\Phi}^*
+\]
+
+must be viewed as an estimated quantity.
+
+Ignoring its uncertainty can produce:
+
+\begin{itemize}
+    \item Overconfident inference.
+    \item Underestimated variance.
+    \item Poor coverage.
+\end{itemize}
+
+The proposed framework corrects this issue.
+
+\subsection*{Limitations}
+
+The paper assumes:
+
+\begin{itemize}
+    \item Covariate shift.
+    \item Correct specification of the density-ratio model.
+    \item Availability of informative target summaries.
+\end{itemize}
+
+The methods do not address:
+
+\begin{itemize}
+    \item Outcome shift.
+    \item Label shift.
+    \item Concept drift.
+    \item Missing target summaries.
+\end{itemize}
+
+The framework also requires sufficient overlap between source and target populations.
+
+\subsection*{Main Takeaways}
+
+\begin{enumerate}
+    \item The paper studies transportability when only target covariate summaries are available.
+    \item Entropy balancing naturally extends to this setting through moment matching.
+    \item The authors establish asymptotic normality and valid variance estimation for entropy balancing.
+    \item Target-summary uncertainty must be incorporated into inference.
+    \item A flexible density-ratio modeling framework generalizes entropy balancing.
+    \item Entropy balancing becomes a special case of the proposed method.
+    \item The proposed estimator remains valid under more general forms of covariate shift.
+    \item Simulations demonstrate improved robustness under nonlinear covariate shift.
+    \item The framework enables valid target-population inference without access to target individual-level data.
+\end{enumerate}
+
+\section{StatLLM: Evaluating LLMs for Statistical Analysis}
+
+\subsection*{Main Objective}
+
+StatLLM is an open-source benchmark dataset designed to evaluate the ability of Large Language Models (LLMs) to perform statistical programming and statistical analysis.
+
+The paper addresses a major gap in the evaluation literature:
+
+\begin{quote}
+There is no standardized benchmark for evaluating LLM performance in statistical programming languages such as SAS and R.
+\end{quote}
+
+Most existing code benchmarks focus on:
+
+\begin{itemize}
+    \item Python
+    \item General software engineering tasks
+    \item Algorithmic programming problems
+\end{itemize}
+
+StatLLM instead focuses on:
+
+\begin{itemize}
+    \item Statistical reasoning
+    \item Statistical programming
+    \item Statistical methodology selection
+    \item Data analysis workflows
+\end{itemize}
+
+The benchmark is intended to evaluate whether LLMs can correctly translate statistical questions into executable statistical analyses.
+
+\subsection*{Motivation}
+
+Recent LLMs can generate code for:
+
+\begin{itemize}
+    \item Python
+    \item R
+    \item SAS
+    \item SQL
+\end{itemize}
+
+However, successful statistical analysis requires much more than code generation.
+
+A model must:
+
+\begin{enumerate}
+    \item Understand the statistical objective.
+    \item Identify the appropriate method.
+    \item Generate syntactically correct code.
+    \item Produce executable code.
+    \item Produce correct statistical output.
+\end{enumerate}
+
+A model may generate code that appears reasonable but:
+
+\begin{itemize}
+    \item Uses the wrong statistical method.
+    \item Violates assumptions.
+    \item Produces incorrect results.
+    \item Fails to execute.
+\end{itemize}
+
+Therefore evaluating statistical AI systems requires domain-specific benchmarks.
+
+\subsection*{StatLLM Dataset Structure}
+
+The benchmark contains three primary components.
+
+\subsubsection*{Statistical Analysis Tasks}
+
+The dataset contains:
+
+\[
+207
+\]
+
+statistical analysis tasks.
+
+These tasks are constructed from:
+
+\[
+65
+\]
+
+real datasets.
+
+Each task includes:
+
+\begin{itemize}
+    \item Dataset description.
+    \item Problem description.
+    \item Human-verified SAS solution.
+\end{itemize}
+
+\subsubsection*{LLM-Generated Code}
+
+The benchmark includes code generated by:
+
+\begin{itemize}
+    \item ChatGPT 3.5
+    \item ChatGPT 4.0
+    \item Llama 3.1 70B
+\end{itemize}
+
+Each model receives:
+
+\begin{itemize}
+    \item Dataset description.
+    \item Variable information.
+    \item Statistical objective.
+\end{itemize}
+
+The resulting SAS code is stored and evaluated.
+
+\subsubsection*{Human Evaluation Scores}
+
+Every generated solution is reviewed by statistics experts.
+
+Human evaluators assess:
+
+\begin{itemize}
+    \item Code quality.
+    \item Executability.
+    \item Output correctness.
+\end{itemize}
+
+The resulting scores form the benchmark's ground truth.
+
+\subsection*{Statistical Topics Covered}
+
+The benchmark spans a broad range of statistical analyses.
+
+\subsubsection*{Data Management}
+
+Examples:
+
+\begin{itemize}
+    \item Data transformation.
+    \item Sorting.
+    \item Variable creation.
+    \item Data cleaning.
+\end{itemize}
+
+\subsubsection*{Descriptive Statistics}
+
+Examples:
+
+\begin{itemize}
+    \item Means.
+    \item Quantiles.
+    \item Contingency tables.
+    \item Missing-data summaries.
+\end{itemize}
+
+\subsubsection*{Correlation Analysis}
+
+Examples:
+
+\begin{itemize}
+    \item Pearson correlation.
+    \item Association measures.
+\end{itemize}
+
+\subsubsection*{Data Visualization}
+
+Examples:
+
+\begin{itemize}
+    \item Histograms.
+    \item Scatterplots.
+    \item Boxplots.
+    \item Time-series plots.
+\end{itemize}
+
+\subsubsection*{Hypothesis Testing}
+
+Examples:
+
+\begin{itemize}
+    \item One-sample tests.
+    \item Two-sample tests.
+    \item Paired tests.
+    \item Chi-square tests.
+    \item Normality tests.
+\end{itemize}
+
+\subsubsection*{ANOVA}
+
+Examples:
+
+\begin{itemize}
+    \item One-way ANOVA.
+    \item Two-way ANOVA.
+    \item Interaction effects.
+\end{itemize}
+
+\subsubsection*{Regression}
+
+Examples:
+
+\begin{itemize}
+    \item Linear regression.
+    \item Multiple regression.
+    \item Quadratic regression.
+    \item Model diagnostics.
+    \item Collinearity analysis.
+\end{itemize}
+
+\subsubsection*{Generalized Linear Models}
+
+Examples:
+
+\begin{itemize}
+    \item Logistic regression.
+    \item Poisson regression.
+    \item Mixed models.
+\end{itemize}
+
+\subsubsection*{Model Selection}
+
+Examples:
+
+\begin{itemize}
+    \item Forward selection.
+    \item Backward selection.
+    \item AIC-based selection.
+\end{itemize}
+
+\subsubsection*{Advanced Methods}
+
+Examples:
+
+\begin{itemize}
+    \item Survival analysis.
+    \item Cox proportional hazards models.
+    \item Nonparametric methods.
+\end{itemize}
+
+\subsection*{Why Statistical Benchmarks are Different}
+
+Traditional code benchmarks often evaluate:
+
+\[
+\text{Input}
+\rightarrow
+\text{Output}
+\]
+
+correctness.
+
+Statistical analysis introduces additional layers:
+
+\[
+\text{Question}
+\rightarrow
+\text{Method}
+\rightarrow
+\text{Code}
+\rightarrow
+\text{Inference}
+\]
+
+An answer may be syntactically correct while being statistically wrong.
+
+For example:
+
+\begin{itemize}
+    \item Using linear regression instead of logistic regression.
+    \item Using a t-test instead of ANOVA.
+    \item Ignoring censoring in survival data.
+\end{itemize}
+
+Therefore statistical evaluation requires domain-specific criteria.
+
+\subsection*{Human Evaluation Framework}
+
+One of the major contributions of StatLLM is the use of expert human evaluation.
+
+The benchmark does not rely solely on automated metrics.
+
+Instead, statisticians manually score generated code.
+
+The paper identifies several evaluation dimensions.
+
+\subsubsection*{Code Quality}
+
+Measures:
+
+\begin{itemize}
+    \item Statistical appropriateness.
+    \item Logical correctness.
+    \item Method selection.
+    \item Code structure.
+\end{itemize}
+
+Question:
+
+\begin{quote}
+Did the model choose the correct statistical procedure?
+\end{quote}
+
+\subsubsection*{Executability}
+
+Measures:
+
+\begin{itemize}
+    \item Whether code runs successfully.
+    \item Presence of syntax errors.
+    \item Missing arguments.
+    \item Invalid procedures.
+\end{itemize}
+
+Question:
+
+\begin{quote}
+Can the code actually be executed?
+\end{quote}
+
+\subsubsection*{Output Accuracy}
+
+Measures:
+
+\begin{itemize}
+    \item Whether the produced output answers the question.
+    \item Whether the correct analysis was performed.
+    \item Whether the reported results are correct.
+\end{itemize}
+
+Question:
+
+\begin{quote}
+Did the code produce the correct statistical result?
+\end{quote}
+
+\subsubsection*{Overall Score}
+
+The benchmark combines multiple dimensions into a total evaluation score.
+
+This provides a holistic assessment of statistical-analysis performance.
+
+\subsection*{Evaluation Metrics for Statistical LLMs}
+
+The paper motivates several categories of evaluation metrics.
+
+These are useful beyond StatLLM and are directly relevant to future statistical AI systems.
+
+\subsubsection*{Method Selection Accuracy}
+
+Arguably the most important metric.
+
+Define:
+
+\[
+MSA
+=
+\frac{\text{Correct Method Selections}}
+{\text{Total Tasks}}.
+\]
+
+Examples:
+
+\begin{itemize}
+    \item Logistic regression selected when appropriate.
+    \item Cox model selected for survival analysis.
+    \item ANOVA selected for group comparisons.
+\end{itemize}
+
+A statistically incorrect method should be counted as failure even if the code executes.
+
+\subsubsection*{Code Executability Rate}
+
+Define:
+
+\[
+ER
+=
+\frac{\text{Executable Programs}}
+{\text{Total Programs}}.
+\]
+
+Measures:
+
+\begin{itemize}
+    \item Syntax correctness.
+    \item Software compatibility.
+\end{itemize}
+
+This is analogous to pass rates in software-engineering benchmarks.
+
+\subsubsection*{Output Accuracy Rate}
+
+Define:
+
+\[
+OAR
+=
+\frac{\text{Correct Outputs}}
+{\text{Total Tasks}}.
+\]
+
+This evaluates whether the generated code ultimately solves the statistical problem.
+
+\subsubsection*{Statistical Correctness}
+
+Measures whether:
+
+\begin{itemize}
+    \item Assumptions are respected.
+    \item Proper estimands are reported.
+    \item Statistical procedures are correctly specified.
+\end{itemize}
+
+This is more important than simple code correctness.
+
+\subsubsection*{Human Evaluation Score}
+
+General framework:
+
+\[
+Score
+=
+f(
+Quality,
+Executability,
+Accuracy
+).
+\]
+
+Human evaluation remains the gold standard.
+
+\subsubsection*{Agreement with Human Solutions}
+
+Suppose:
+
+\[
+C_{LLM}
+\]
+
+is generated code and
+
+\[
+C_{Human}
+\]
+
+is verified code.
+
+One can compare:
+
+\begin{itemize}
+    \item Procedure selection.
+    \item Parameter choices.
+    \item Output equivalence.
+\end{itemize}
+
+Importantly, exact code matching is not required.
+
+Different code can produce the same correct analysis.
+
+\subsection*{Limitations of Traditional NLP Metrics}
+
+The paper highlights a major issue.
+
+Metrics such as:
+
+\begin{itemize}
+    \item BLEU
+    \item ROUGE
+    \item Exact Match
+\end{itemize}
+
+may not be appropriate for statistical code.
+
+Example:
+
+Two SAS programs may be completely different textually but perform identical analyses.
+
+Thus:
+
+\[
+\text{Text Similarity}
+\neq
+\text{Statistical Correctness}.
+\]
+
+This motivates specialized evaluation metrics for statistical programming.
+
+\subsection*{Benchmarking Framework for Statistical AI}
+
+The paper implicitly suggests a hierarchy of evaluation.
+
+Level 1:
+
+\[
+\text{Can the code run?}
+\]
+
+Level 2:
+
+\[
+\text{Is the method correct?}
+\]
+
+Level 3:
+
+\[
+\text{Is the statistical output correct?}
+\]
+
+Level 4:
+
+\[
+\text{Is the interpretation correct?}
+\]
+
+Future statistical AI benchmarks should ideally evaluate all four levels.
+
+\subsection*{Connection to Statistical Copilots}
+
+The authors argue that benchmarks such as StatLLM are necessary for developing:
+
+\begin{itemize}
+    \item AI-assisted statistical software.
+    \item Statistical copilots.
+    \item Natural-language data-analysis systems.
+\end{itemize}
+
+Future systems may allow users to specify analyses through natural language rather than programming directly.
+
+Reliable benchmarks are required before such systems can be trusted.
+
+\subsection*{Relevance to the Project}
+
+The ideas from StatLLM are directly applicable to evaluating AI systems in statistics.
+
+For example, if an AI system is developed for:
+
+\begin{itemize}
+    \item IPD reconstruction,
+    \item Covariate augmentation,
+    \item Survival meta-analysis,
+    \item Transportability,
+\end{itemize}
+
+evaluation should not only consider:
+
+\[
+\text{Did it generate code?}
+\]
+
+but also:
+
+\[
+\text{Did it generate the correct statistical analysis?}
+\]
+
+Potential evaluation dimensions include:
+
+\begin{itemize}
+    \item Reconstruction accuracy.
+    \item Treatment-effect accuracy.
+    \item Covariate-recovery accuracy.
+    \item Survival-curve fidelity.
+    \item Statistical validity.
+    \item Uncertainty calibration.
+\end{itemize}
+
+This mirrors the philosophy underlying StatLLM.
+
+\subsection*{Key Takeaways}
+
+\begin{enumerate}
+    \item StatLLM is one of the first benchmark datasets specifically designed for statistical programming evaluation.
+    \item The benchmark contains 207 statistical tasks spanning 65 datasets.
+    \item Tasks cover topics ranging from descriptive statistics to survival analysis.
+    \item Human experts evaluate generated code rather than relying solely on automated metrics.
+    \item Statistical evaluation requires more than syntax checking.
+    \item Method selection is often more important than code similarity.
+    \item Executability, correctness, and output accuracy should all be evaluated separately.
+    \item Traditional NLP metrics may be insufficient for statistical programming tasks.
+    \item Statistical AI systems should ultimately be evaluated on the quality of their statistical reasoning rather than text generation alone.
+\end{enumerate}
 
 % =================================================================================
 \part{Project Directions}
@@ -95,12 +2665,1970 @@
 
 \section{Meta-Analysis Review}
 
-\section{Survival Analysis}
+\subsection*{What is Meta-Analysis?}
 
-\section{Min-Max Methods}
+Meta-analysis is a statistical framework for combining evidence from multiple studies that investigate the same scientific question.
 
-\section{STAT-LM and Evaluation of AI-Statistical Models}
+Rather than relying on a single study, meta-analysis seeks to synthesize information across studies to obtain:
 
+\begin{itemize}
+    \item More precise effect estimates.
+    \item Greater statistical power.
+    \item Improved generalizability.
+    \item Better understanding of heterogeneity.
+\end{itemize}
 
+Conceptually:
+
+\[
+\text{Multiple Studies}
+\quad \Longrightarrow \quad
+\text{One Combined Estimate}
+\]
+
+The fundamental idea is that each study provides partial information about an underlying treatment effect.
+
+\subsection*{Why Meta-Analysis Exists}
+
+Individual studies often suffer from:
+
+\begin{itemize}
+    \item Small sample sizes.
+    \item Limited power.
+    \item Conflicting conclusions.
+    \item Population-specific results.
+\end{itemize}
+
+Meta-analysis pools information across studies to reduce uncertainty.
+
+For example:
+
+\begin{center}
+\begin{tabular}{ccc}
+Study & Effect Estimate & Standard Error \\
+A & 0.20 & 0.15 \\
+B & 0.35 & 0.18 \\
+C & 0.10 & 0.12
+\end{tabular}
+\end{center}
+
+Each study alone is noisy.
+
+Meta-analysis combines them into a single estimate with smaller uncertainty.
+
+\subsection*{Basic Setup}
+
+Suppose there are \(K\) studies.
+
+For study \(k\):
+
+\[
+\hat{\theta}_k
+\]
+
+denotes the estimated treatment effect.
+
+Examples include:
+
+\begin{itemize}
+    \item Mean differences.
+    \item Odds ratios.
+    \item Risk ratios.
+    \item Hazard ratios.
+    \item RMST differences.
+\end{itemize}
+
+Associated uncertainty is represented by:
+
+\[
+s_k^2
+\]
+
+where:
+
+\[
+s_k = \text{standard error of }\hat{\theta}_k.
+\]
+
+The goal is to estimate:
+
+\[
+\theta
+\]
+
+using all studies simultaneously.
+
+\subsection*{Common Effect Measures}
+
+\subsubsection*{Mean Difference}
+
+For continuous outcomes:
+
+\[
+MD
+=
+\bar{Y}_T-\bar{Y}_C.
+\]
+
+Examples:
+
+\begin{itemize}
+    \item Blood pressure reduction.
+    \item Weight loss.
+    \item Test scores.
+\end{itemize}
+
+\subsubsection*{Standardized Mean Difference}
+
+Used when studies measure outcomes on different scales.
+
+\[
+SMD
+=
+\frac{\bar{Y}_T-\bar{Y}_C}
+{s_{pooled}}.
+\]
+
+Interpretation:
+
+\begin{itemize}
+    \item 0.2 = small effect.
+    \item 0.5 = moderate effect.
+    \item 0.8 = large effect.
+\end{itemize}
+
+\subsubsection*{Risk Ratio}
+
+For binary outcomes:
+
+\[
+RR
+=
+\frac{P(Y=1|T)}
+     {P(Y=1|C)}.
+\]
+
+Interpretation:
+
+\begin{itemize}
+    \item RR = 1 : no effect.
+    \item RR < 1 : treatment reduces risk.
+    \item RR > 1 : treatment increases risk.
+\end{itemize}
+
+\subsubsection*{Odds Ratio}
+
+\[
+OR
+=
+\frac{
+P(Y=1|T)/(1-P(Y=1|T))
+}{
+P(Y=1|C)/(1-P(Y=1|C))
+}.
+\]
+
+Often used in:
+
+\begin{itemize}
+    \item Case-control studies.
+    \item Logistic regression.
+\end{itemize}
+
+\subsubsection*{Hazard Ratio}
+
+For survival outcomes:
+
+\[
+HR
+=
+\frac{h_T(t)}
+     {h_C(t)}.
+\]
+
+Interpretation:
+
+\begin{itemize}
+    \item HR = 1 : identical hazards.
+    \item HR < 1 : treatment beneficial.
+    \item HR > 1 : treatment harmful.
+\end{itemize}
+
+Hazard ratios assume proportional hazards when interpreted globally.
+
+\subsection*{The Core Meta-Analysis Estimator}
+
+The most basic estimator is a weighted average.
+
+\[
+\hat{\theta}_{MA}
+=
+\sum_{k=1}^{K}
+w_k \hat{\theta}_k.
+\]
+
+Weights satisfy:
+
+\[
+\sum_{k=1}^{K} w_k = 1.
+\]
+
+The entire field of meta-analysis largely revolves around how these weights are chosen.
+
+\subsection*{Why Weight Studies?}
+
+Not all studies provide equal information.
+
+Example:
+
+\begin{center}
+\begin{tabular}{ccc}
+Study & Sample Size & SE \\
+A & 100 & 0.20 \\
+B & 1000 & 0.05
+\end{tabular}
+\end{center}
+
+Study B is much more precise.
+
+Therefore:
+
+\[
+w_B > w_A.
+\]
+
+Meta-analysis assigns more weight to studies with smaller uncertainty.
+
+\subsection*{Inverse Variance Weighting}
+
+The most common weighting scheme is:
+
+\[
+w_k
+=
+\frac{1/s_k^2}
+{\sum_{j=1}^{K}1/s_j^2}.
+\]
+
+Interpretation:
+
+\begin{itemize}
+    \item Small variance $\rightarrow$ large weight.
+    \item Large variance $\rightarrow$ small weight.
+\end{itemize}
+
+The pooled estimator becomes:
+
+\[
+\hat{\theta}_{MA}
+=
+\frac{
+\sum_{k=1}^{K}
+\hat{\theta}_k/s_k^2
+}{
+\sum_{k=1}^{K}
+1/s_k^2
+}.
+\]
+
+\subsection*{Variance of the Pooled Estimate}
+
+The variance of the pooled estimate is:
+
+\[
+Var(\hat{\theta}_{MA})
+=
+\frac{1}
+{\sum_{k=1}^{K}
+1/s_k^2}.
+\]
+
+The standard error is:
+
+\[
+SE(\hat{\theta}_{MA})
+=
+\sqrt{
+\frac{1}
+{\sum_{k=1}^{K}
+1/s_k^2}
+}.
+\]
+
+Confidence intervals follow:
+
+\[
+\hat{\theta}_{MA}
+\pm
+1.96
+\times
+SE(\hat{\theta}_{MA}).
+\]
+
+\subsection*{What is Heterogeneity?}
+
+A central question in meta-analysis is:
+
+\begin{quote}
+Are all studies estimating the same effect?
+\end{quote}
+
+If all studies estimate the same treatment effect:
+
+\[
+\theta_1
+=
+\theta_2
+=
+\cdots
+=
+\theta_K.
+\]
+
+there is little heterogeneity.
+
+If effects vary:
+
+\[
+\theta_1
+\neq
+\theta_2
+\neq
+\cdots
+\neq
+\theta_K,
+\]
+
+there is heterogeneity.
+
+\subsection*{Sources of Heterogeneity}
+
+Differences may arise from:
+
+\begin{itemize}
+    \item Patient populations.
+    \item Inclusion criteria.
+    \item Treatment protocols.
+    \item Follow-up durations.
+    \item Biomarker prevalence.
+    \item Study quality.
+\end{itemize}
+
+Heterogeneity is often the most important issue in practice.
+
+\subsection*{Cochran's Q Statistic}
+
+One measure of heterogeneity is:
+
+\[
+Q
+=
+\sum_{k=1}^{K}
+w_k
+(\hat{\theta}_k-\hat{\theta}_{MA})^2.
+\]
+
+Interpretation:
+
+\begin{itemize}
+    \item Large values indicate disagreement across studies.
+    \item Small values indicate consistency.
+\end{itemize}
+
+Under homogeneity:
+
+\[
+Q
+\sim
+\chi^2_{K-1}.
+\]
+
+\subsection*{I-Squared}
+
+A more interpretable measure is:
+
+\[
+I^2
+=
+\max
+\left(
+0,
+\frac{Q-(K-1)}
+     {Q}
+\right)
+\times 100\%.
+\]
+
+Interpretation:
+
+\begin{center}
+\begin{tabular}{cc}
+$I^2$ & Interpretation \\
+0-25\% & Low heterogeneity \\
+25-50\% & Moderate heterogeneity \\
+50-75\% & Substantial heterogeneity \\
+75\%+ & High heterogeneity
+\end{tabular}
+\end{center}
+
+This statistic appears in almost every published meta-analysis.
+
+\subsection*{Forest Plots}
+
+The standard visualization is the forest plot.
+
+Each study contributes:
+
+\begin{itemize}
+    \item Point estimate.
+    \item Confidence interval.
+\end{itemize}
+
+The pooled estimate is displayed at the bottom.
+
+Interpretation:
+
+\begin{itemize}
+    \item Horizontal lines represent uncertainty.
+    \item Squares represent study estimates.
+    \item Diamond represents pooled estimate.
+\end{itemize}
+
+Forest plots are the most recognizable figure in meta-analysis.
+
+\subsection*{Publication Bias}
+
+Meta-analysis assumes observed studies represent all completed studies.
+
+In practice:
+
+\begin{itemize}
+    \item Positive studies are more likely to be published.
+    \item Negative studies are more likely to remain unpublished.
+\end{itemize}
+
+This creates publication bias.
+
+\subsection*{Funnel Plots}
+
+Publication bias is commonly assessed using a funnel plot.
+
+Plot:
+
+\[
+\hat{\theta}_k
+\]
+
+against:
+
+\[
+SE(\hat{\theta}_k).
+\]
+
+Without bias:
+
+\begin{itemize}
+    \item Plot appears symmetric.
+\end{itemize}
+
+With bias:
+
+\begin{itemize}
+    \item Plot becomes asymmetric.
+\end{itemize}
+
+\subsection*{Aggregate Data vs Individual Participant Data}
+
+Meta-analysis can be conducted using:
+
+\subsubsection*{Aggregate Data (AD)}
+
+Uses published summaries only.
+
+Examples:
+
+\begin{itemize}
+    \item Hazard ratios.
+    \item Odds ratios.
+    \item Means.
+\end{itemize}
+
+Advantages:
+
+\begin{itemize}
+    \item Easy to obtain.
+    \item Computationally simple.
+\end{itemize}
+
+Disadvantages:
+
+\begin{itemize}
+    \item Loss of information.
+    \item Limited subgroup analyses.
+\end{itemize}
+
+\subsubsection*{Individual Participant Data (IPD)}
+
+Uses original patient-level observations.
+
+Advantages:
+
+\begin{itemize}
+    \item More flexible.
+    \item More powerful.
+    \item Allows treatment-effect heterogeneity analysis.
+\end{itemize}
+
+Disadvantages:
+
+\begin{itemize}
+    \item Difficult to obtain.
+    \item Resource intensive.
+\end{itemize}
+
+IPD meta-analysis is often considered the gold standard.
+
+\subsection*{Meta-Analysis for Survival Data}
+
+Historically, survival meta-analysis relies on:
+
+\[
+\log(HR)
+\]
+
+and corresponding standard errors.
+
+The pooled hazard ratio is:
+
+\[
+\hat{\beta}
+=
+\frac{
+\sum_k
+w_k
+\hat{\beta}_k
+}{
+\sum_k w_k
+}.
+\]
+
+where:
+
+\[
+\hat{\beta}_k
+=
+\log(HR_k).
+\]
+
+Modern approaches increasingly use:
+
+\begin{itemize}
+    \item Reconstructed survival curves.
+    \item RMST.
+    \item Time-varying treatment effects.
+    \item Bayesian survival models.
+\end{itemize}
+
+These methods relax proportional hazards assumptions.
+
+\subsection*{Why Meta-Analysis Matters for This Project}
+
+Your project sits at the intersection of:
+
+\begin{enumerate}
+    \item Survival analysis.
+    \item IPD reconstruction.
+    \item Covariate reconstruction.
+    \item Meta-analysis.
+\end{enumerate}
+
+The overall workflow is:
+
+\[
+\text{Published Studies}
+\rightarrow
+\text{Reconstructed IPD}
+\rightarrow
+\text{Study-Specific Effects}
+\rightarrow
+\text{Meta-Analysis}
+\]
+
+The major challenge is that reconstruction uncertainty introduces an additional source of variability beyond standard sampling uncertainty.
+
+Many of the advanced methods you will study later can be viewed as extensions of the simple weighted-average framework developed in this section.
+\section{Meta-Analysis Models}
+
+\subsection*{Overview}
+
+The central goal of meta-analysis is to combine study-specific estimates
+
+\[
+\hat{\theta}_1,\ldots,\hat{\theta}_K
+\]
+
+into a single summary estimate.
+
+Different meta-analysis models differ primarily in how they treat the underlying true study effects:
+
+\[
+\theta_1,\ldots,\theta_K.
+\]
+
+The key question is:
+
+\begin{quote}
+Are all studies estimating the same treatment effect, or does the treatment effect vary across studies?
+\end{quote}
+
+This distinction leads to:
+
+\begin{enumerate}
+    \item Fixed-effect models.
+    \item Random-effects models.
+    \item Bayesian meta-analysis.
+    \item Meta-regression.
+    \item IPD meta-analysis frameworks.
+    \item Survival-specific meta-analysis methods.
+\end{enumerate}
+
+\subsection*{Fixed-Effect Models}
+
+\subsubsection*{Core Assumption}
+
+A fixed-effect model assumes that every study estimates the same true effect:
+
+\[
+\theta_1
+=
+\theta_2
+=
+\cdots
+=
+\theta_K
+=
+\theta.
+\]
+
+Thus:
+
+\[
+\hat{\theta}_k
+=
+\theta
++
+\varepsilon_k
+\]
+
+where
+
+\[
+\varepsilon_k
+\sim
+N(0,s_k^2).
+\]
+
+All variability between studies is assumed to arise from sampling error.
+
+There is no between-study heterogeneity.
+
+\subsubsection*{Interpretation}
+
+The fixed-effect estimator answers:
+
+\begin{quote}
+What is the common treatment effect shared by all studies?
+\end{quote}
+
+This interpretation is only valid if all studies truly estimate the same effect.
+
+\subsubsection*{Estimator}
+
+Using inverse-variance weighting:
+
+\[
+w_k
+=
+\frac{1/s_k^2}
+{\sum_{j=1}^{K}1/s_j^2},
+\]
+
+the pooled estimate is
+
+\[
+\hat{\theta}_{FE}
+=
+\sum_{k=1}^{K}
+w_k\hat{\theta}_k.
+\]
+
+Equivalently,
+
+\[
+\hat{\theta}_{FE}
+=
+\frac{
+\sum_{k=1}^{K}
+\hat{\theta}_k/s_k^2
+}{
+\sum_{k=1}^{K}
+1/s_k^2
+}.
+\]
+
+\subsubsection*{Variance}
+
+\[
+Var(\hat{\theta}_{FE})
+=
+\frac{1}
+{\sum_{k=1}^{K}
+1/s_k^2}.
+\]
+
+\subsubsection*{Advantages}
+
+\begin{itemize}
+    \item Simple.
+    \item Computationally efficient.
+    \item Highly precise when homogeneity holds.
+\end{itemize}
+
+\subsubsection*{Limitations}
+
+\begin{itemize}
+    \item Unrealistic in many applications.
+    \item Ignores heterogeneity.
+    \item Can produce overconfident intervals.
+\end{itemize}
+
+\subsection*{Random-Effects Models}
+
+\subsubsection*{Motivation}
+
+Clinical studies often differ in:
+
+\begin{itemize}
+    \item Patient populations.
+    \item Inclusion criteria.
+    \item Follow-up length.
+    \item Treatment implementation.
+\end{itemize}
+
+Therefore:
+
+\[
+\theta_1,\ldots,\theta_K
+\]
+
+may not be identical.
+
+Random-effects models explicitly allow study-specific treatment effects.
+
+\subsubsection*{Hierarchical Model}
+
+Level 1:
+
+\[
+\hat{\theta}_k
+\mid
+\theta_k
+\sim
+N(\theta_k,s_k^2).
+\]
+
+Level 2:
+
+\[
+\theta_k
+\sim
+N(\mu,\tau^2).
+\]
+
+where:
+
+\begin{itemize}
+    \item $\mu$ = overall average treatment effect.
+    \item $\tau^2$ = between-study variance.
+\end{itemize}
+
+The model can be visualized as:
+
+\[
+\mu
+\rightarrow
+\theta_k
+\rightarrow
+\hat{\theta}_k.
+\]
+
+\subsubsection*{Interpretation}
+
+The pooled estimate answers:
+
+\begin{quote}
+What is the average treatment effect across a population of studies?
+\end{quote}
+
+This differs fundamentally from the fixed-effect interpretation.
+
+\subsubsection*{Random-Effects Weights}
+
+Weights become:
+
+\[
+w_k
+=
+\frac{1}
+{s_k^2+\tau^2}.
+\]
+
+Compared with fixed-effect models:
+
+\begin{itemize}
+    \item Large studies receive less dominance.
+    \item Small studies receive more weight.
+\end{itemize}
+
+\subsubsection*{Estimating Heterogeneity}
+
+The central quantity is:
+
+\[
+\tau^2.
+\]
+
+Common estimators include:
+
+\begin{itemize}
+    \item DerSimonian-Laird.
+    \item REML (Restricted Maximum Likelihood).
+    \item Paule-Mandel.
+    \item Bayesian estimation.
+\end{itemize}
+
+\subsubsection*{Prediction Intervals}
+
+An important advantage of random-effects models is prediction.
+
+A future study effect is modeled as:
+
+\[
+\theta_{new}
+\sim
+N(\mu,\tau^2).
+\]
+
+Prediction intervals describe where future study effects may fall.
+
+Confidence intervals describe uncertainty about:
+
+\[
+\mu.
+\]
+
+Prediction intervals describe uncertainty about:
+
+\[
+\theta_{new}.
+\]
+
+\subsection*{Bayesian Meta-Analysis}
+
+\subsubsection*{Motivation}
+
+Frequentist random-effects models estimate:
+
+\[
+\mu
+\quad\text{and}\quad
+\tau^2.
+\]
+
+Bayesian models treat these quantities as random variables.
+
+\subsubsection*{Hierarchical Bayesian Model}
+
+Likelihood:
+
+\[
+\hat{\theta}_k
+\mid
+\theta_k
+\sim
+N(\theta_k,s_k^2).
+\]
+
+Study effects:
+
+\[
+\theta_k
+\mid
+\mu,\tau^2
+\sim
+N(\mu,\tau^2).
+\]
+
+Priors:
+
+\[
+\mu
+\sim
+p(\mu),
+\]
+
+\[
+\tau
+\sim
+p(\tau).
+\]
+
+Posterior:
+
+\[
+p(\mu,\tau,\theta_1,\ldots,\theta_K
+\mid
+Data).
+\]
+
+\subsubsection*{Advantages}
+
+\begin{itemize}
+    \item Full uncertainty quantification.
+    \item Natural hierarchical modeling.
+    \item Easy incorporation of prior information.
+    \item Flexible extensions.
+\end{itemize}
+
+\subsubsection*{Posterior Inference}
+
+Posterior means:
+
+\[
+E(\mu\mid Data)
+\]
+
+often serve as pooled estimates.
+
+Posterior credible intervals replace confidence intervals.
+
+Example:
+
+\[
+P(\mu\in[a,b]\mid Data)=0.95.
+\]
+
+\subsubsection*{Shrinkage}
+
+A key feature is partial pooling.
+
+Extreme study estimates are shrunk toward:
+
+\[
+\mu.
+\]
+
+The amount of shrinkage depends on:
+
+\begin{itemize}
+    \item Study variance.
+    \item Heterogeneity.
+\end{itemize}
+
+\subsection*{One-Stage vs Two-Stage Meta-Analysis}
+
+\subsubsection*{Two-Stage Meta-Analysis}
+
+Historically the most common framework.
+
+Stage 1:
+
+Estimate treatment effects separately:
+
+\[
+\hat{\theta}_1,\ldots,\hat{\theta}_K.
+\]
+
+Stage 2:
+
+Pool estimates using:
+
+\[
+\hat{\theta}_1,\ldots,\hat{\theta}_K.
+\]
+
+Workflow:
+
+\[
+\text{Study Analysis}
+\rightarrow
+\text{Meta-Analysis}.
+\]
+
+\subsubsection*{Advantages}
+
+\begin{itemize}
+    \item Easy to implement.
+    \item Computationally simple.
+    \item Standard software available.
+\end{itemize}
+
+\subsubsection*{Limitations}
+
+\begin{itemize}
+    \item Information loss.
+    \item Difficult interaction modeling.
+    \item Less efficient.
+\end{itemize}
+
+\subsubsection*{One-Stage Meta-Analysis}
+
+Analyze all participant data simultaneously.
+
+General form:
+
+\[
+Y_{ij}
+\sim
+f(\eta_{ij})
+\]
+
+with
+
+\[
+\eta_{ij}
+=
+\alpha_j
++
+\beta_j T_{ij}
++
+\gamma_j X_{ij}.
+\]
+
+where:
+
+\begin{itemize}
+    \item \(i\) indexes patients.
+    \item \(j\) indexes studies.
+\end{itemize}
+
+Random effects model study variation.
+
+\subsubsection*{Advantages}
+
+\begin{itemize}
+    \item More efficient.
+    \item Easier interaction modeling.
+    \item Better handling of missing data.
+    \item More flexible.
+\end{itemize}
+
+\subsubsection*{Why One-Stage Matters}
+
+Many treatment-effect heterogeneity analyses require:
+
+\[
+Treatment
+\times
+Covariate
+\]
+
+interactions.
+
+These are easier to estimate within a one-stage framework.
+
+\subsection*{Meta-Regression}
+
+\subsubsection*{Motivation}
+
+Suppose studies differ systematically.
+
+Examples:
+
+\begin{itemize}
+    \item Mean age.
+    \item Biomarker prevalence.
+    \item Treatment duration.
+    \item Study quality.
+\end{itemize}
+
+Meta-regression attempts to explain heterogeneity.
+
+\subsubsection*{Model}
+
+Random-effects meta-regression:
+
+\[
+\hat{\theta}_k
+=
+\beta_0
++
+\beta_1 z_k
++
+u_k
++
+\varepsilon_k
+\]
+
+where:
+
+\begin{itemize}
+    \item \(z_k\) is a study-level covariate.
+    \item \(u_k \sim N(0,\tau^2)\).
+\end{itemize}
+
+\subsubsection*{Interpretation}
+
+\[
+\beta_1
+\]
+
+represents how the treatment effect changes as the study-level characteristic changes.
+
+\subsubsection*{Ecological Bias}
+
+A major limitation is ecological bias.
+
+Study-level relationships need not equal patient-level relationships.
+
+Example:
+
+\[
+E(Y|X,\text{patient})
+\neq
+E(Y|\bar X,\text{study}).
+\]
+
+This is one major motivation for IPD meta-analysis.
+
+\subsection*{Survival Meta-Analysis}
+
+\subsubsection*{Traditional Approach}
+
+Historically survival meta-analysis pools:
+
+\[
+\log(HR_k).
+\]
+
+Model:
+
+\[
+\hat{\beta}_k
+=
+\log(HR_k).
+\]
+
+Then:
+
+\[
+\hat{\beta}_{MA}
+=
+\frac{
+\sum_k
+w_k
+\hat{\beta}_k
+}{
+\sum_k
+w_k
+}.
+\]
+
+\subsubsection*{Limitation}
+
+Hazard ratios assume:
+
+\[
+HR(t)=HR.
+\]
+
+This is the proportional hazards assumption.
+
+Violations occur when:
+
+\begin{itemize}
+    \item Curves cross.
+    \item Delayed treatment effects exist.
+    \item Immunotherapy effects emerge later.
+\end{itemize}
+
+\subsubsection*{Modern Survival Meta-Analysis}
+
+Increasingly uses:
+
+\begin{itemize}
+    \item Reconstructed IPD.
+    \item Kaplan--Meier curves.
+    \item RMST.
+    \item Time-varying hazards.
+\end{itemize}
+
+Examples include:
+
+\begin{itemize}
+    \item MARS.
+    \item Bayesian survival meta-analysis.
+    \item Piecewise exponential models.
+\end{itemize}
+
+\subsubsection*{Restricted Mean Survival Time}
+
+RMST is defined as:
+
+\[
+RMST(\tau)
+=
+\int_0^\tau S(t)\,dt.
+\]
+
+Interpretation:
+
+Expected survival accumulated before time horizon \(\tau\).
+
+Treatment effect:
+
+\[
+\Delta_{RMST}
+=
+RMST_T
+-
+RMST_C.
+\]
+
+Advantages:
+
+\begin{itemize}
+    \item No proportional hazards assumption.
+    \item Clinically interpretable.
+    \item Robust to crossing survival curves.
+\end{itemize}
+
+\subsubsection*{Current Research Direction}
+
+Modern survival meta-analysis is increasingly moving toward:
+
+\[
+\text{Reconstructed IPD}
+\rightarrow
+\text{Flexible Survival Models}
+\rightarrow
+\text{Clinically Interpretable Estimands}
+\]
+
+rather than simply pooling hazard ratios.
+
+This shift motivates methods such as:
+
+\begin{itemize}
+    \item KM-GPT.
+    \item RESOLVE-IPD.
+    \item MARS.
+    \item Target-population meta-analysis.
+\end{itemize}
+
+which seek to use more of the information contained in published survival studies.
+
+\section{Extremal Inference}
+
+\subsection*{Overview}
+
+Extremal inference is a framework for statistical inference when the parameter of interest is not uniquely identified.
+
+Rather than estimating a single value:
+
+\[
+\theta,
+\]
+
+the available data and assumptions only imply that the parameter lies within a feasible set:
+
+\[
+\Theta.
+\]
+
+The goal becomes estimating:
+
+\[
+\Theta
+=
+[\theta_L,\theta_U]
+\]
+
+or more generally:
+
+\[
+\Theta
+=
+\{\theta : \theta \text{ is compatible with the observed data}\}.
+\]
+
+Instead of asking:
+
+\begin{quote}
+What is the treatment effect?
+\end{quote}
+
+extremal inference asks:
+
+\begin{quote}
+What is the smallest and largest treatment effect consistent with the evidence?
+\end{quote}
+
+This framework appears throughout:
+
+\begin{itemize}
+    \item Partial identification.
+    \item Missing-data problems.
+    \item Causal inference.
+    \item Sensitivity analysis.
+    \item Robust optimization.
+    \item Distributionally robust inference.
+    \item Reconstruction uncertainty problems.
+\end{itemize}
+
+\subsection*{Motivation}
+
+Classical statistical inference assumes that enough information exists to identify:
+
+\[
+\theta.
+\]
+
+For example:
+
+\[
+\hat{\theta}
+=
+0.35.
+\]
+
+However, many real-world problems are underdetermined.
+
+Multiple underlying data-generating processes may explain the same observations.
+
+Examples include:
+
+\begin{itemize}
+    \item Missing covariates.
+    \item Missing outcomes.
+    \item Aggregate-data reconstruction.
+    \item Unobserved confounding.
+    \item Subgroup assignment uncertainty.
+\end{itemize}
+
+In these situations:
+
+\[
+\text{Data}
+\not\Rightarrow
+\text{Unique Parameter}.
+\]
+
+Instead:
+
+\[
+\text{Data}
+\Rightarrow
+\text{Set of Plausible Parameters}.
+\]
+
+\subsection*{Identification vs Partial Identification}
+
+\subsubsection*{Point Identification}
+
+A parameter is point identified if:
+
+\[
+\Theta
+=
+\{\theta\}.
+\]
+
+Only one value is compatible with the observed data.
+
+Examples:
+
+\begin{itemize}
+    \item Linear regression coefficients.
+    \item Means of fully observed variables.
+    \item Standard treatment effects in randomized trials.
+\end{itemize}
+
+\subsubsection*{Partial Identification}
+
+A parameter is partially identified if:
+
+\[
+|\Theta|>1.
+\]
+
+Many values satisfy the available evidence.
+
+The data only determine bounds:
+
+\[
+\theta_L
+\le
+\theta
+\le
+\theta_U.
+\]
+
+The focus shifts from estimation of a point to estimation of a region.
+
+\subsection*{Identification Regions}
+
+Suppose the parameter of interest is:
+
+\[
+\theta.
+\]
+
+The identification region is:
+
+\[
+\Theta
+=
+\{
+\theta :
+\theta \text{ is consistent with all observed constraints}
+\}.
+\]
+
+For one-dimensional parameters:
+
+\[
+\Theta
+=
+[\theta_L,\theta_U].
+\]
+
+where
+
+\[
+\theta_L
+=
+\inf_{\theta\in\Theta}
+\theta
+\]
+
+and
+
+\[
+\theta_U
+=
+\sup_{\theta\in\Theta}
+\theta.
+\]
+
+These are called the extremal values.
+
+\subsection*{Basic Example}
+
+Suppose:
+
+\[
+Y
+\in
+[0,1].
+\]
+
+Assume:
+
+\[
+20\%
+\]
+
+of observations are missing.
+
+Without additional assumptions:
+
+\[
+0
+\le
+E(Y)
+\le
+1.
+\]
+
+If the observed mean among observed subjects is:
+
+\[
+0.6,
+\]
+
+then the sharp bounds become:
+
+\[
+0.8(0.6)+0.2(0)
+=
+0.48
+\]
+
+and
+
+\[
+0.8(0.6)+0.2(1)
+=
+0.68.
+\]
+
+Thus:
+
+\[
+0.48
+\le
+E(Y)
+\le
+0.68.
+\]
+
+The parameter is not identified, but the feasible region is.
+
+\subsection*{Sharp vs Non-Sharp Bounds}
+
+\subsubsection*{Sharp Bounds}
+
+Bounds are sharp if every point inside the interval can be attained by some data-generating process consistent with the assumptions.
+
+Formally:
+
+\[
+\Theta
+=
+[\theta_L,\theta_U].
+\]
+
+Every value inside the interval is feasible.
+
+Sharp bounds contain exactly the information provided by the assumptions.
+
+\subsubsection*{Non-Sharp Bounds}
+
+Non-sharp bounds are wider than necessary.
+
+They contain impossible values.
+
+Researchers generally seek sharp bounds whenever possible.
+
+\subsection*{Optimization View}
+
+Many extremal inference problems can be written as optimization problems.
+
+Suppose:
+
+\[
+\theta
+=
+g(X).
+\]
+
+subject to constraints:
+
+\[
+X
+\in
+\mathcal C.
+\]
+
+Then:
+
+\[
+\theta_L
+=
+\min_{X\in\mathcal C}
+g(X)
+\]
+
+and
+
+\[
+\theta_U
+=
+\max_{X\in\mathcal C}
+g(X).
+\]
+
+This perspective is especially important in reconstruction problems.
+
+\subsection*{Connection to Causal Inference}
+
+Many causal parameters are only partially identified.
+
+Suppose:
+
+\[
+Y(1)
+\]
+
+and
+
+\[
+Y(0)
+\]
+
+are potential outcomes.
+
+The average treatment effect is:
+
+\[
+ATE
+=
+E[Y(1)-Y(0)].
+\]
+
+Without randomization or strong assumptions:
+
+\[
+ATE
+\]
+
+may not be point identified.
+
+Instead:
+
+\[
+ATE
+\in
+[\tau_L,\tau_U].
+\]
+
+The resulting interval represents all causal effects compatible with the observed data.
+
+\subsection*{Sensitivity Analysis vs Extremal Inference}
+
+Sensitivity analysis studies how conclusions change under violations of assumptions.
+
+Extremal inference studies all possible values under a fixed set of assumptions.
+
+Sensitivity analysis:
+
+\[
+\text{Assumptions vary}
+\]
+
+Extremal inference:
+
+\[
+\text{Parameter varies}
+\]
+
+within the feasible set implied by fixed assumptions.
+
+The two approaches are closely related.
+
+\subsection*{Extremal Inference in Meta-Analysis}
+
+Meta-analysis typically assumes each study provides a unique effect estimate.
+
+However reconstruction problems introduce additional uncertainty.
+
+Suppose:
+
+\[
+g
+\]
+
+denotes a reconstructed dataset.
+
+Then treatment effects become:
+
+\[
+\hat{\tau}(g).
+\]
+
+If multiple reconstructions are feasible:
+
+\[
+g_1,\ldots,g_M,
+\]
+
+then the effect estimate is no longer unique.
+
+Instead:
+
+\[
+\tau
+\in
+\{
+\hat{\tau}(g_1),
+\ldots,
+\hat{\tau}(g_M)
+\}.
+\]
+
+Extremal inference summarizes this uncertainty using:
+
+\[
+\tau_L
+=
+\min_g
+\hat{\tau}(g)
+\]
+
+and
+
+\[
+\tau_U
+=
+\max_g
+\hat{\tau}(g).
+\]
+
+\subsection*{Connection to MAPLE}
+
+In MAPLE:
+
+\[
+G
+=
+\{
+g_1,\ldots,g_M
+\}
+\]
+
+represents a collection of subgroup label assignments consistent with published evidence.
+
+Traditional analyses choose one labeling.
+
+Extremal inference instead studies:
+
+\[
+\min_{g\in G}
+\hat{\tau}(g)
+\]
+
+and
+
+\[
+\max_{g\in G}
+\hat{\tau}(g).
+\]
+
+These represent:
+
+\begin{itemize}
+    \item Most favorable reconstruction.
+    \item Least favorable reconstruction.
+\end{itemize}
+
+with respect to the treatment effect.
+
+This is directly connected to current extensions of RESOLVE-IPD.
+
+\subsection*{Monte Carlo Approximation}
+
+In practice:
+
+\[
+G
+\]
+
+may be extremely large.
+
+Enumerating every reconstruction is impossible.
+
+A common approximation is:
+
+\[
+g_1,\ldots,g_B
+\sim
+G.
+\]
+
+Compute:
+
+\[
+\hat{\tau}(g_1),
+\ldots,
+\hat{\tau}(g_B).
+\]
+
+Then approximate:
+
+\[
+\tau_L
+\approx
+\min_b
+\hat{\tau}(g_b)
+\]
+
+and
+
+\[
+\tau_U
+\approx
+\max_b
+\hat{\tau}(g_b).
+\]
+
+Potential issue:
+
+The true extremum may never be sampled.
+
+This becomes increasingly problematic as dimensionality grows.
+
+\subsection*{Worst-Case and Best-Case Analysis}
+
+Extremal inference is often described as:
+
+\begin{itemize}
+    \item Best-case analysis.
+    \item Worst-case analysis.
+\end{itemize}
+
+Best-case:
+
+\[
+\max
+\hat{\tau}.
+\]
+
+Worst-case:
+
+\[
+\min
+\hat{\tau}.
+\]
+
+These provide robustness guarantees.
+
+If treatment remains beneficial even under the worst-case reconstruction, conclusions become more credible.
+
+\subsection*{Robust Optimization Connection}
+
+Extremal inference has close connections to robust optimization.
+
+Classical estimation:
+
+\[
+\hat{\theta}
+=
+\arg\min
+L(\theta).
+\]
+
+Robust optimization:
+
+\[
+\hat{\theta}
+=
+\arg\min_{\theta}
+\sup_{u\in\mathcal U}
+L(\theta,u).
+\]
+
+where
+
+\[
+\mathcal U
+\]
+
+represents uncertainty.
+
+Similarly, extremal inference studies:
+
+\[
+\sup_{\theta\in\Theta}
+\theta
+\]
+
+and
+
+\[
+\inf_{\theta\in\Theta}
+\theta.
+\]
+
+Both frameworks focus on uncertainty sets rather than single models.
+
+\subsection*{Extremal Inference for Survival Analysis}
+
+Suppose:
+
+\[
+\tau(g)
+\]
+
+represents a survival estimand under reconstruction \(g\).
+
+Possible estimands include:
+
+\begin{itemize}
+    \item Hazard ratios.
+    \item Survival probabilities.
+    \item RMST differences.
+    \item Median survival differences.
+\end{itemize}
+
+The extremal problem becomes:
+
+\[
+\min_{g\in G}
+\tau(g)
+\]
+
+and
+
+\[
+\max_{g\in G}
+\tau(g).
+\]
+
+This identifies the full range of treatment effects compatible with the reconstruction constraints.
+
+\subsection*{Why Extremal Inference Matters for the Project}
+
+The central challenge in covariate augmentation is that many reconstructed datasets may satisfy the same aggregate summaries.
+
+For example:
+
+\[
+G
+=
+\{
+g :
+g \text{ matches published evidence}
+\}.
+\]
+
+Current Monte Carlo approaches typically sample from:
+
+\[
+G
+\]
+
+and report averages.
+
+However:
+
+\begin{itemize}
+    \item The true extremal reconstruction may be rare.
+    \item Monte Carlo may never discover it.
+    \item Important treatment-effect variability may be missed.
+\end{itemize}
+
+Extremal inference instead asks:
+
+\begin{quote}
+What is the smallest and largest treatment effect achievable among all feasible reconstructions?
+\end{quote}
+
+This shifts the focus from a single reconstructed dataset to the geometry of the entire feasible reconstruction space.
+
+\subsection*{Key Takeaways}
+
+\begin{enumerate}
+    \item Extremal inference is used when parameters are only partially identified.
+    \item The goal is to characterize feasible regions rather than estimate a single value.
+    \item Identification regions are defined by all values consistent with observed data and assumptions.
+    \item Extremal values are obtained through constrained optimization.
+    \item Sharp bounds contain exactly the information implied by the assumptions.
+    \item Many reconstruction problems naturally lead to partial identification.
+    \item MAPLE already produces a feasible set of subgroup assignments, making extremal inference a natural extension.
+    \item Monte Carlo sampling may fail to identify true extrema in high-dimensional reconstruction spaces.
+    \item Worst-case and best-case analyses provide robustness guarantees.
+    \item Extremal inference is likely to play a central role in future extensions of uncertainty-aware IPD reconstruction.
+\end{enumerate}
 
 \end{document}
