@@ -19,6 +19,8 @@
 \usepackage{setspace}
 \usepackage{microtype}
 \usepackage{parskip}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 
 % -------------------------------------------------
 % Formatting
@@ -1611,9 +1613,277 @@ Reliable benchmarks are required before such systems can be trusted.
 
 \section{Single-Covariate Reconstruction and Extremal Inference}
 
+\paragraph{Motivation}
+Current MAPLE-style approaches generate subgroup labels that are consistent with published information, but the reconstructions are not point-identifiable, since the current workflow samples from a feasible space and reports ATE via MC reconstruction, which may fail to capture edge cases. We would like to be able to quantify the full range of treatment effects.
+
+We aim to quantify these bounds through extremal inference with the following (possible) approaches: Integer Programming, Network Flow Formulations, Combinatorial Optimization, Branch-Bound Methods, Simulated Annealing, Genetic Algorithms. We would also aim to provide both confidence bounds.
+\subsection{Proposed Idea}
+
+\subsubsection*{1. Start with a Single Covariate}
+
+We begin with a single binary covariate, such as PD-L1 status.
+
+The reconstructed survival data $(T_i,\delta_i,A_i)$ where $T_i$ is observed survival time, $\delta_i$ is the event indicator, and $A_i$ is treatment assignment. The unknown object is the subgroup label vector
+
+\[Z=(Z_1,\ldots,Z_n), \qquad Z_i\in\{0,1\}.\]
+
+Here $Z_i=1$ may indicate PD-L1 high and $Z_i=0$ may indicate PD-L1 low.
+
+The objective is not to recover a single "correct" labeling. Instead, the objective is to characterize the set of label assignments consistent with the published evidence and evaluate how much downstream treatment-effect inference changes across this set.
+
+Restricting attention to a single binary covariate isolates subgroup reconstruction uncertainty and creates a tractable first setting before extending to multiple covariates or full joint covariate reconstruction.
+
+\subsubsection*{2. Define the Feasible Assignment Space}
+
+Let $\mathcal Z=\{Z:Z\text{ satisfies all published constraints}\}$. 
+
+Possible constraints include:
+
+\begin{itemize}
+    \item Total subgroup counts: $\sum_i Z_i=K$
+    \item Treatment-arm subgroup counts: $\sum_{i:A_i=1}Z_i=K_1,\quad \sum_{i:A_i=0}Z_i=K_0$
+    \item Reported subgroup survival probabilities, RMT values, median survival, hazard ratios
+\end{itemize}
+
+Three nested feasible regions may be considered:
+
+\begin{itemize}
+    \item Mathematical feasibility: published constraints only
+    \item Statistical plausibility: exclude assignments producing impossible survival behavior
+    \item Clinical plausibility: incorporate external biomarker knowledge
+\end{itemize}
+
+Alternatively we can define possible plausibility score as:
+
+\[\log P(Z)=\log P_{prev}(Z)+\log P_{surv}(Z)+\log P_{hist}(Z)\]
+
+where:
+
+\begin{itemize}
+    \item $P_{prev}(Z)$ measures agreement with known biomarker prevalence
+    \item $P_{surv}(Z)$ measures agreement with expected subgroup survival behavior
+    \item $P_{hist}(Z)$ measures agreement with historical trial evidence
+\end{itemize}
+
+Or,
+
+\[P(Z)\propto\exp\{-L(Z)\}\]
+
+where $L(Z)$ penalizes departures from known external information.
+
+Possible analyses:
+
+\begin{itemize}
+    \item Optimize over all feasible assignments
+    \item Optimize over assignments satisfying $P(Z)\ge c$
+    \item Use $P(Z)$ as a Bayesian prior over feasible assignments
+\end{itemize}
+
+\subsubsection*{3. Compute Treatment Effects for Feasible Assignments}
+
+Each feasible labeling induces a potentially different treatment effect. We'll focus on RMST difference primarily, and then extend later to other TEs.
+For a fixed truncation horizon $\tau$,
+
+\[RMST(\tau)=\int_0^\tau S(t)\,dt.\]
+
+For a given label assignment $Z$, we estimate subgroup-specific survival curves and compute the treatment contrast
+
+\[\Delta_Z(\tau)=RMST_{T,Z=1}(\tau)-RMST_{C,Z=1}(\tau).\]
+
+The truncation horizon $\tau$ should be prespecified. Practical choices include the maximum common follow-up time, a clinically meaningful time such as 12 months, or a time point reported consistently across studies. Sensitivity analysis can repeat the procedure over multiple values of $\tau$.
+
+\subsubsection*{4. Find Assignments that Minimize and Maximize the Treatment Effect}
+
+The objective is to compute
+
+\[\Delta_L(\tau)=\min_{Z\in\mathcal Z}\Delta_Z(\tau), \qquad \Delta_U(\tau)=\max_{Z\in\mathcal Z}\Delta_Z(\tau).\]
+
+Since $\mathcal Z$ may be extremely large, direct enumeration is infeasible.
+
+A key challenge is balancing two goals:
+
+\begin{itemize}
+    \item Characterizing the overall feasible distribution of treatment effects.
+    \item Identifying the extremal treatment effects that lie on the boundary of the feasible region.
+\end{itemize}
+
+We therefore propose two complementary approaches.
+
+\paragraph*{Approach 1: Simulated Tempering}
+
+Simulated tempering provides a unified framework for both distributional exploration and extremal search.
+
+Rather than operating at a single temperature, the algorithm moves between multiple temperatures
+
+\[\mathcal T=\{T_1,\ldots,T_L\}, \text{ where } \quad T_1<T_2<\cdots<T_L.\]
+
+Low temperatures concentrate on extremal assignments, while high temperatures encourage broad exploration of the feasible region.
+
+For maximization, define the energy function $E(Z)=-\Delta_Z(\tau).$
+
+The target distribution at temperature $T$ is
+
+\[\pi_T(Z)\propto \exp\{-E(Z)/T\}=\exp\{\Delta_Z(\tau)/T\}.\]
+
+As $T\to 0$, the sampler concentrates near assignments with large RMST differences. As $T$ increases, the sampler explores a much wider portion of the feasible space.
+
+\begin{algorithm}[H]
+\caption{Simulated Tempering for RMST Reconstruction}
+\begin{algorithmic}[1]
+\State Generate initial feasible assignment $Z^{(0)}$
+\State Initialize temperature $T\in\mathcal T$
+\For{$g=1,\ldots,G_{\max}$}
+    \State Generate feasible proposal $Z'$ via label swap
+    \State Compute $\Delta_{Z'}(\tau)$
+    \State Compute acceptance probability under current temperature
+    \State Accept or reject $Z'$
+    \State Propose temperature move $T\rightarrow T'$
+    \State Accept or reject temperature move
+    \State Record $(Z,T,\Delta_Z(\tau))$
+\EndFor
+\State Estimate distribution of $\Delta_Z(\tau)$
+\State Estimate $\Delta_L(\tau)$ and $\Delta_U(\tau)$
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph*{Initialization}
+
+The initial assignment may be a MAPLE reconstruction, a randomly generated feasible assignment, or a MC reconstruction satisfying all count constraints. If treatment-arm counts are known, initialization is performed separately within each arm.
+
+\paragraph*{Proposal Mechanism}
+
+Each proposal swaps one subgroup-positive and one subgroup-negative patient.
+If treatment-arm constraints exist, swaps are restricted to occur within treatment arms so feasibility is preserved automatically.
+
+\paragraph*{Advantages}
+
+Simulated tempering has several attractive properties:
+
+\begin{itemize}
+    \item High-temperature states explore the interior of the feasible region.
+    \item Low-temperature states search for extremal assignments.
+    \item One algorithm produces both distributional and extremal information.
+    \item Less likely to become trapped in local optima than ordinary simulated annealing.
+\end{itemize}
+
+\paragraph*{Outputs}
+
+The algorithm naturally produces:
+
+\begin{itemize}
+    \item Mean treatment effect
+    \item Median treatment effect
+    \item Quartiles
+    \item Empirical density of $\Delta_Z(\tau)$
+    \item Estimated extrema $\Delta_L(\tau)$ and $\Delta_U(\tau)$
+\end{itemize}
+
+\paragraph*{Approach 2: Two-Stage Monte Carlo + Extremal Optimization}
+
+The second approach separates distributional estimation and extremal search.
+
+Stage 1 characterizes the feasible region using Monte Carlo reconstruction.
+
+Stage 2 identifies boundary assignments using Extremal Optimization (EO).
+
+\subparagraph*{Stage 1: Monte Carlo Reconstruction}
+
+Generate $Z^{(1)},\ldots,Z^{(B)}\sim\mathcal Z,$ where each assignment satisfies all reconstruction constraints. For each assignment compute
+\[\Delta_{Z^{(1)}}(\tau),\ldots,\Delta_{Z^{(B)}}(\tau).\]
+These samples provide an empirical characterization of the feasible region.
+
+\begin{algorithm}[H]
+\caption{Monte Carlo Characterization of the Feasible Region}
+\begin{algorithmic}[1]
+\For{$b=1,\ldots,B$}
+    \State Generate feasible assignment $Z^{(b)}$
+    \State Compute $\Delta_{Z^{(b)}}(\tau)$
+\EndFor
+\State Estimate mean, median, quartiles, and Monte Carlo range
+\end{algorithmic}
+\end{algorithm}
+
+\subparagraph*{Stage 2: Extremal Optimization}
+
+Extremal Optimization is then used to search specifically for boundary assignments.
+Unlike Monte Carlo, EO intentionally focuses on poorly performing components of the current assignment.
+For subgroup reconstruction, the components are individual patient labels.
+
+\begin{algorithm}[H]
+\caption{Extremal Optimization for RMST Extremes}
+\begin{algorithmic}[1]
+\State Initialize feasible assignment $Z$
+\State Compute $\Delta_Z(\tau)$
+\While{stopping criterion not met}
+    \State Compute local fitness $f_i$ for each patient
+    \State Rank patients from worst to best fitness
+    \State Sample patient $i$ according to rank-based probability
+    \State Select feasible swap partner $j$
+    \State Swap labels $Z_i$ and $Z_j$
+    \State Compute updated $\Delta_Z(\tau)$
+    \State Record best assignment found
+\EndWhile
+\State Return extremal assignment
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph*{Local Fitness}
+
+A key design choice is the local fitness function.
+
+One possibility is an influence-based score $f_i=\left|\Delta_Z(\tau)-\Delta_{Z^{-i}}(\tau)\right|,$
+where $\Delta_{Z^{-i}}(\tau)$ denotes the RMST estimate after removing patient $i$.
+Alternative fitness functions may incorporate RMSt influence, agreement with published subgroup summaries, constraint violations, or a hybrid.
+
+\paragraph*{Rank-Based Selection}
+
+Patients are ranked according to fitness $f_{(1)}\le f_{(2)}\le\cdots\le f_{(n)}.$ and EO samples patients according to
+
+\[
+P(k)\propto k^{-\gamma},
+\]
+
+where $k$ is the fitness rank and $\gamma>0$ is a tuning parameter.
+
+This heavily favors poorly performing assignments while still permitting exploration.
+
+\paragraph*{Advantages}
+
+The two-stage framework separates two distinct goals:
+
+\begin{itemize}
+    \item Monte Carlo characterizes the typical feasible region.
+    \item EO searches for the extremal boundaries.
+\end{itemize}
+
+This makes interpretation straightforward and directly addresses the concern that ordinary Monte Carlo reconstruction may fail to discover edge-case assignments.
+
+\paragraph*{Comparison of Approaches}
+
+The simulated tempering approach uses a single algorithm to estimate both the interior and boundary of the feasible region.
+The Monte Carlo + EO approach explicitly separates these objectives.
+
+An important empirical comparison is whether Monte Carlo alone captures the same range as EO. Specifically, compare
+\[\min_b \Delta_{Z^{(b)}}(\tau) \text{ and } \quad \Delta_L(\tau)\]
+and
+\[\max_b \Delta_{Z^{(b)}}(\tau) \text{ and } \quad \Delta_U(\tau)\]
+
+Large discrepancies would indicate that conventional Monte Carlo reconstruction understates reconstruction uncertainty and fails to identify important extremal subgroup assignments.
+\subsubsection*{5. Characterize the Entire Feasible Region}
+
+Rather than reporting a single treatment effect estimate, we characterize the distribution of treatment effects induced by feasible label assignments.
+The primary quantity of interest is the identification region \([\Delta_L(\tau),\Delta_U(\tau)].\)
+
+In addition to the extremal bounds, we can summarize the empirical distribution of $\Delta_Z(\tau)$ using the minimum, first quartile, median, mean, third quartile, maximum, and interval width.
+
+The MAPLE estimate can be placed within this distribution to assess whether MAPLE produces a central labeling, an extreme labeling, or something in between.
+
 \section{Joint Covariate Reconstruction}
 
-\section{Something about StatLLM}
+Current augmentation methods largely reconstruct covariate independently since if all correlation effects were considered, we would have $1000^4$ reconstructions, which quickly becomes computationally infeasible. We could aim to generate correlations under known information while ratisfying constraints, either through Gaussian/Vine copulas or a more ambitious direction towards generative models (Bayesian Networks, VAEs, Normalizing Flows). 
+
+Maybe use an agentic framework for intelligent search?
+\section{Something about StatLLM?}
 
 
 
