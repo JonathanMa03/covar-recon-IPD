@@ -1607,6 +1607,286 @@ Reliable benchmarks are required before such systems can be trusted.
     \item Statistical AI systems should ultimately be evaluated on the quality of their statistical reasoning rather than text generation alone.
 \end{enumerate}
 
+\section{AUTOMAT: A Benchmark for Agentic Reproduction}
+
+\subsection*{Main Objective}
+
+AUTOMAT is a benchmark designed to evaluate whether LLM-based coding agents can reproduce computational materials science claims from scientific papers and associated artifacts.
+The key distinction is that AUTOMAT evaluates end-to-end scientific reproduction, workflow recovery, scientific validation, and long-horizon execution rather than simple code generation or tool use.
+
+The central question is:
+
+Can an autonomous agent reconstruct, execute, and verify a scientific claim from a published paper?
+
+\subsection*{Motivation}
+
+Most existing AI benchmarks focus on programming problems like code generation, SWE tasks, and tool usage. 
+
+Examples include standard coding benchmarks and scientific coding benchmarks such as SciCode.
+
+However, scientific reproducibility requires much more than writing code.
+
+An agent must:
+
+\begin{itemize}
+    \item Understand scientific claims and identify the workflow, software requirements and inputs
+    \item Execute computational experiments and interpret results correctly
+    \item Determine whether the claim is supported
+\end{itemize}
+
+AUTOMAT was developed specifically to evaluate these capabilities.
+
+\subsection*{Core Benchmark Representation}
+
+Each benchmark instance is represented as $x=(q,p,m,a)$ where:
+
+$q$ = scientific claim, $p$ = source paper, $m$ = metadata, $a$ = available artifacts (scripts, datasets, custom code, config, simulation outputs)
+
+
+The agent does not receive expert reproduction instructions. Instead, it must independently determine how to reproduce the claim.
+
+\subsection*{Computational Materials Science Domains}
+
+Claims span multiple subfields like density field theory (DFT), molecular dynamics, statistical learning methods, and discrete dislocation dynamics. These domains were selected because they represent diverse reproducibility challenges.
+
+\subsection*{Claim Selection Philosophy}
+
+Claims are chosen by subject matter experts (SMEs). The focus is on numerical claims that support a paper's main scientific conclusions.
+Examples include formation energies, prediction accuracies, diffusion coefficients, and thermodynamic quantities. The benchmark intentionally emphasizes quantitative verification rather than qualitative interpretation.
+
+\subsection*{Claim Types}
+
+AUTOMAT contains three claim categories.
+
+\subsubsection*{From-Paper Reproduction}
+
+The agent receives a scientific paper and meta data, but the workflow has to be reconstructed from the publication itself and without artifacts.
+
+This is the most difficult setting because workflow details are often underspecified.
+
+\subsubsection*{From-Artifact Reproduction}
+
+The agent receives everything from From-Paper reproduction but gets essential artifacts like code repositories, trained models, and simulation inputs.
+
+The challenge becomes execution and adaptation rather than workflow discovery.
+
+\subsubsection*{From-Artifact Interpretation}
+
+The agent receives completed outputs. The agent must determine whether the provided results support the scientific claim.
+
+This tests scientific reasoning rather than computational execution.
+
+\subsection*{Verification Categories}
+
+AUTOMAT further categorizes claims by verification type.
+
+\subsubsection*{Scalar Metric Match}
+
+Verify a numerical quantity (accuracy, energy, error rate)
+
+\subsubsection*{Comparative or Ordering Claims}
+
+Verify relative comparisons.
+
+Examples:
+
+\begin{itemize}
+    \item Method A outperforms Method B
+    \item Material X is more stable than Material Y
+\end{itemize}
+
+\subsubsection*{Range or Bound Verification}
+
+Verify whether a result lies within a reported range.
+
+\subsubsection*{Structural or Qualitative Verification}
+
+Verify qualitative scientific behavior (response curve shape/stability patterns)
+
+\subsubsection*{Figure Reproduction}
+
+Verify whether an agent can recreate a published figure.
+
+\subsection*{Agent Execution Framework}
+
+Given a task $x=(q,p,m,a)$, an agent performs a reproduction attempt:
+\[\tau=\text{Agent}_{rep}(x).\]
+The trajectory $\tau$ contains commands executed, files generated, logs and intermediate outputs, and final reports.
+The benchmark therefore evaluates complete scientific workflows rather than final answers alone.
+
+\subsection*{Task-Specific Orchestrated Agent}
+
+The authors build a specialized reproduction agent with the goal of improved auditability and workflow control.
+
+The workflow contains four phases:
+\begin{enumerate}
+    \item Read-only planning
+    \item Environment preparation
+    \item Deterministic execution with failure diagnosis
+    \item Result extraction and self-assessment
+\end{enumerate}
+Importantly, this agent is not given additional scientific knowledge.
+
+\subsection*{Evaluation Framework}
+
+A separate evaluator agent assesses reproduction quality.
+Unlike a static judge, the evaluator can read generated files and compare against expert solutions.
+The evaluation function is
+\[y=\text{Agent}_{eval}(g,q,p,\tau),\]
+where:
+
+\begin{itemize}
+    \item $g$ = SME-authored ground-truth reproduction procedure
+    \item $q$ = claim
+    \item $p$ = paper
+    \item $\tau$ = reproduction trajectory
+\end{itemize}
+
+\subsection*{Overall Reproducibility Score}
+
+Each run receives a score from 1 to 5:
+
+\begin{center}
+\begin{tabular}{cl}
+5 & Fully reproduced \\
+4 & Mostly reproduced \\
+3 & Partially reproduced \\
+2 & Mostly failed \\
+1 & Failed
+\end{tabular}
+\end{center}
+
+A successful reproduction is defined as: $\text{Score}\ge4$
+
+\subsection*{Evaluation Dimensions}
+
+The overall score is supported by five dimensions:
+\begin{itemize}
+    \item Methodological Fidelity: Did the agent follow an appropriate scientific procedure?
+
+    \item Execution Competence: Could the workflow be executed successfully?
+
+    \item Result Accuracy: Were the reproduced results correct?
+
+    \item Completeness: Did the agent complete all required steps?
+
+    \item Scientific Rigor: Did the agent provide sufficient evidence and scientific justification?
+
+\end{itemize}
+
+\subsection*{Judge Calibration}
+
+To validate the automated evaluator, the authors compare it against blinded SME evaluations.
+
+A subset of n=40 runs is independently reviewed by experts and found Quadratic-weighted kappa: 0.69 and Within-1 score agreement: 0.80. This indicates substantial agreement between automated and human evaluation.
+
+\subsection*{Research Questions}
+
+The benchmark investigates three questions:
+\begin{enumerate}
+    \item How well can current coding agents reproduce scientific claims?
+    \item Does task-specific orchestration improve reproducibility performance?
+    \item What failure modes prevent successful reproduction?
+\end{enumerate}
+
+\subsection*{Models Evaluated}
+
+Five systems were evaluated:
+
+\begin{itemize}
+    \item Claude Code + Opus 4.6
+    \item Claude Code + Sonnet 4.6
+    \item Claude Code + Kimi K2.5
+    \item Codex CLI + GPT-5.4
+    \item Orchestrated Agent + Sonnet 4.6
+\end{itemize}
+
+The orchestrated agent uses the same underlying model as Claude Code Sonnet, enabling controlled comparisons.
+
+\subsection*{Main Results}
+
+Overall performance remains limited.
+
+Mean reproducibility scores:
+
+\begin{center}
+\begin{tabular}{lc}
+Agent & Mean Score \\
+Claude Code + Opus & 3.52 \\
+Claude Code + Sonnet & 3.12 \\
+Orchestrated + Sonnet & 2.92 \\
+Claude Code + Kimi & 2.75 \\
+Codex + GPT-5.4 & 2.44
+\end{tabular}
+\end{center}
+
+The best system achieved a success rate of approximately 54.1\%.
+
+The weakest achieved approximately 23.5 \%.
+
+Thus, no system was reliably capable of autonomous scientific reproduction.
+
+\subsection*{Performance by Claim Type}
+
+From-paper reproduction was the most difficult setting. Mean scores ranged roughly from 1.5 to 2.2
+
+Success rates were near zero for most systems. The primary bottleneck is workflow recovery from incomplete paper descriptions.
+
+From-artifact reproduction was substantially easier.
+
+Mean scores ranged approximately 3.1-4.1 ith success rates of 39\% to 77\%. Providing executable artifacts removes much of the ambiguity.
+
+From-artifact interpretation remained challenging despite available outputs.
+
+Success rates ranged from 33\% to 50\%. This suggests that scientific interpretation remains difficult even when execution is unnecessary.
+
+\subsection*{Effect of Orchestration}
+
+A central finding is that workflow orchestration did not substantially improve overall performance.
+
+When comparing:
+
+\begin{itemize}
+    \item Orchestrated Agent + Sonnet
+    \item Claude Code + Sonnet
+\end{itemize}
+
+most benchmark instances resulted in ties.
+
+The orchestrated system showed improvement only in scientific rigor.
+
+The free-form Claude Code workflow often performed better on execution-related tasks.
+
+The authors conclude that orchestration introduces trade-offs rather than universally improving performance.
+
+\subsection*{Key Failure Modes}
+
+Several recurring challenges emerge:
+
+\begin{itemize}
+    \item Workflow reconstruction from incomplete papers
+    \item Missing software dependencies
+    \item Long-horizon execution failures
+    \item Incorrect scientific interpretation
+    \item Inability to adapt workflows when execution errors occur
+\end{itemize}
+
+The benchmark demonstrates that scientific reproducibility requires substantially more than coding ability.
+
+\subsection*{Key Takeaways}
+
+\begin{itemize}
+    \item AUTOMAT evaluates end-to-end scientific reproducibility rather than isolated coding tasks.
+    \item Tasks require workflow reconstruction, execution, validation, and interpretation.
+    \item Three claim types are considered: from-paper reproduction, from-artifact reproduction, and from-artifact interpretation.
+    \item Reproducibility is evaluated using methodological fidelity, execution competence, result accuracy, completeness, and scientific rigor.
+    \item Current coding agents succeed on only a minority of benchmark tasks.
+    \item From-paper reproduction remains the dominant bottleneck.
+    \item Providing executable artifacts substantially improves performance.
+    \item Scientific interpretation remains difficult even when outputs are available.
+    \item Task-specific orchestration improves rigor but does not substantially improve overall reproducibility.
+    \item Scientific reproducibility remains a challenging frontier for autonomous AI systems.
+\end{itemize}
 % =================================================================================
 \newpage
 \part{Project Directions}
@@ -1883,9 +2163,143 @@ The MAPLE estimate can be placed within this distribution to assess whether MAPL
 Current augmentation methods largely reconstruct covariate independently since if all correlation effects were considered, we would have $1000^4$ reconstructions, which quickly becomes computationally infeasible. We could aim to generate correlations under known information while ratisfying constraints, either through Gaussian/Vine copulas or a more ambitious direction towards generative models (Bayesian Networks, VAEs, Normalizing Flows). 
 
 Maybe use an agentic framework for intelligent search?
-\section{Something about StatLLM?}
 
+\subsection*{MedStatBench: Benchmarking AI for Statistical Methodology in Medicine}
 
+\paragraph*{Motivation}
+
+Current benchmarks evaluate code generation, general reasoning, or software engineering ability. Statistical benchmarks such as StatLLM focus primarily on statistical programming tasks, while scientific reproducibility benchmarks evaluate end-to-end workflow execution.
+
+There is currently no benchmark specifically designed to evaluate whether AI systems can function as competent statistical collaborators in biomedical research.
+
+The goal is to evaluate whether LLM agents can correctly select, execute, validate, and interpret statistical analyses commonly encountered in medicine.
+
+\paragraph*{Core Research Question}
+
+Can AI agents reliably perform statistical methodology tasks at the level expected of a biostatistician or clinical researcher?
+
+\paragraph*{Task Categories}
+
+Tasks could include statistical method selection, meta-analysis, or causal inference.
+
+Each task would provide:
+
+\begin{itemize}
+    \item Clinical question.
+    \item Dataset description.
+    \item Study design.
+    \item Available outputs or data.
+\end{itemize}
+
+\paragraph*{Evaluation Dimensions}
+
+Evaluation should separate multiple components of statistical competence:
+
+\begin{itemize}
+    \item Methodological fidelity.
+    \item Statistical correctness.
+    \item Code executability.
+    \item Numerical accuracy.
+    \item Assumption awareness.
+    \item Interpretation quality.
+\end{itemize}
+
+A possible scoring framework is
+
+\[
+Score=w_1S_{method}+w_2S_{exec}+w_3S_{num}+w_4S_{assump}+w_5S_{interp}.
+\]
+
+\paragraph*{Benchmark Domains}
+
+Representative domains could include:
+
+\begin{itemize}
+    \item Logistic regression.
+    \item Cox proportional hazards models.
+    \item RMST analysis.
+    \item Random-effects meta-analysis.
+    \item Propensity score methods.
+    \item Mixed-effects models.
+    \item Competing risks.
+    \item Bayesian models.
+\end{itemize}
+
+\paragraph*{Potential Contribution}
+
+The resulting benchmark would provide a standardized framework for evaluating AI-assisted statistical analysis in medicine and could serve as an analogue of StatLLM for modern biomedical statistics.
+
+\subsection*{iRecon: Benchmarking AI-Assisted IPD Reconstruction and Validation}
+
+\paragraph*{Motivation}
+
+Methods such as Guyot reconstruction, MAPLE, MARS, and RESOLVE-IPD have made it possible to approximately reconstruct individual participant data from published clinical trials.
+
+However, the overall workflow remains highly manual. Analysts must identify relevant figures, extract numerical information, select reconstruction methods, validate outputs, and perform downstream analyses.
+Recent advances in AI agents raise the possibility of partially automating this process.
+
+\paragraph*{Core Research Question}
+
+Can AI agents reconstruct clinically useful approximate IPD from published trial reports and reproduce downstream statistical conclusions?
+
+The overall workflow becomes \[\text{Clinical Trial Paper}\rightarrow\text{AI Agent}\rightarrow\text{Approximate IPD}\rightarrow\text{Statistical Analysis}.\]
+
+\paragraph*{Benchmark Structure}
+
+Each benchmark instance consists of $x=(p,a,g)$ where:
+\begin{itemize}
+    \item $p$ = published clinical trial paper.
+    \item $a$ = available figures, tables, supplements, or code.
+    \item $g$ = ground-truth IPD or trusted reconstruction.
+\end{itemize}
+The agent produces a reconstructed dataset $\hat D$.
+
+\paragraph*{Task Levels}
+
+\paragraph*{Level 1: Survival Reconstruction}
+
+Input published KM cuvres and risk tables, and output $(T_i,\delta_i)$ pairs, evaluated with KM reconstruction error and survival metric (RMST/HR) recovery.
+
+\paragraph*{Level 2: Covariate Reconstruction}
+
+Input everything from Level 1 and add baseline characteristics to get $(T_i,\delta_i,Z_i).$
+
+Evaluate using subgroup prevalence and survival recovery, along iwth treatment effect decovery.
+
+\paragraph*{Level 3: End-to-End Statistical Reproduction}
+
+Input the entire trial publication and output reconstructed IPD with statistical analysis and TE estimates, along with critical tables and figures.
+
+\paragraph*{Evaluation Dimensions}
+
+Evaluation occurs at multiple levels:
+
+\begin{itemize}
+    \item Information extraction accuracy.
+    \item Reconstruction accuracy.
+    \item Methodological fidelity.
+    \item Statistical validity.
+    \item Reproducibility.
+    \item Clinical interpretation quality.
+\end{itemize}
+
+Potential metrics include $\delta_\theta$, survival-curve discrepancies, and agreement with published treatment-effect estimates.
+
+\paragraph*{Agent Architecture}
+
+Possible agent modules include:
+
+\begin{itemize}
+    \item Paper-reading agent.
+    \item Figure-extraction agent.
+    \item Reconstruction agent.
+    \item Validation agent.
+    \item Statistical-analysis agent.
+\end{itemize}
+
+\paragraph*{Potential Contribution}
+
+This project would create the first benchmark focused on AI-assisted evidence reconstruction in medicine. Rather than evaluating only code generation or statistical reasoning, the benchmark would evaluate the complete pipeline from published evidence to reconstructed data and downstream scientific inference.
 
 % =================================================================================
 \newpage
@@ -1896,7 +2310,6 @@ Maybe use an agentic framework for intelligent search?
 \subsection*{Overview}
 
 Survival analysis studies the time until an event occurs. Common events include death, disease progression, relapse, equipment failure, and customer churn.
-
 Unlike standard regression, survival analysis must account for time-to-event outcomes, censoring, and changing risk over time.
 
 The primary random variable is $T$, the event time.
@@ -1905,108 +2318,58 @@ The primary random variable is $T$, the event time.
 
 Survival data are often only partially observed.
 
-For right censoring, we observe
-
-\[Y=\min(T,C)\]
-
-with event indicator
-
-\[\delta=I(T\le C).\]
+For right censoring, we observe $Y=\min(T,C)$ with event indicator $\delta=I(T\le C)$
 
 If $\delta=1$, the event is observed. If $\delta=0$, the observation is censored.
 
 Other forms include left censoring ($T<C$) and interval censoring ($L<T<R$).
 
-A fundamental assumption is independent censoring:
-
-\[T\perp C.\]
-
-Violations produce informative censoring and may bias inference.
+A fundamental assumption is independent censoring $T\perp C$. Violations produce informative censoring and may bias inference.
 
 \subsection*{Core Survival Quantities}
 
-The survival function is
+The survival function is $S(t)=P(T>t)$, the probability of surviving beyond time $t$.
 
-\[S(t)=P(T>t),\]
-
-the probability of surviving beyond time $t$.
-
-The cumulative distribution function is
-
-\[F(t)=P(T\le t)=1-S(t).\]
+The cumulative distribution function is $F(t)=P(T\le t)=1-S(t)$. 
 
 For continuous outcomes,
-
 \[f(t)=-\frac{dS(t)}{dt}.\]
-
 The hazard function is
-
 \[h(t)=\lim_{\Delta t\to0}\frac{P(t\le T<t+\Delta t\mid T\ge t)}{\Delta t},\]
-
 which represents the instantaneous event risk among individuals still at risk.
 
 The cumulative hazard is
-
 \[H(t)=\int_0^t h(u)\,du.\]
-
-These quantities are related through
-
-\[S(t)=e^{-H(t)}\]
-
-and
-
-\[f(t)=h(t)S(t).\]
+These quantities are related through $S(t)=e^{-H(t)}$ and $f(t)=h(t)S(t)$.
 
 \subsection*{Kaplan--Meier Estimation}
 
 The Kaplan--Meier estimator is the standard nonparametric estimator of the survival function:
-
 \[\hat S(t)=\prod_{t_j\le t}\left(1-\frac{d_j}{n_j}\right),\]
-
 where $d_j$ is the number of events and $n_j$ is the number at risk at time $t_j$.
-
 The estimator is nonparametric, handles right censoring, and produces a stepwise estimate of the survival curve.
-
 The median survival time is
-
 \[t_{0.5}=\inf\{t:S(t)\le0.5\}.\]
 
 \subsection*{Nelson--Aalen Estimation}
-
 The Nelson--Aalen estimator estimates cumulative hazard:
-
 \[\hat H(t)=\sum_{t_j\le t}\frac{d_j}{n_j}.\]
-
-A useful approximation is
-
-\[\hat S(t)\approx e^{-\hat H(t)}.\]
+A useful approximation is $\hat S(t)\approx e^{-\hat H(t)}$.
 
 \subsection*{Comparing Survival Curves}
 
 The log-rank test is the most common test for comparing survival curves.
-
 The null hypothesis is
-
 \[H_0:S_1(t)=S_2(t).\]
-
 The test compares observed and expected events across groups and is most powerful when proportional hazards holds.
 
 \subsection*{Parametric Survival Models}
 
-Parametric models assume a specific distribution for $T$.
+Parametric models assume a specific distribution for $T$:
 
-The exponential model assumes a constant hazard:
+The \emph{exponential} model assumes a constant hazard $h(t)=\lambda$ with survival function $S(t)=e^{-\lambda t}$.
 
-\[h(t)=\lambda,\]
-
-with survival function
-
-\[S(t)=e^{-\lambda t}.\]
-
-The Weibull model assumes
-
-\[h(t)=\lambda\gamma t^{\gamma-1}.\]
-
+The \emph{Weibull} model assumes $$h(t)=\lambda\gamma t^{\gamma-1}$$
 When $\gamma=1$, the model reduces to the exponential model. Values of $\gamma>1$ imply increasing hazard, while $\gamma<1$ implies decreasing hazard.
 
 The log-normal model assumes
@@ -2022,75 +2385,50 @@ Accelerated Failure Time (AFT) models act directly on survival times:
 \[\log(T)=X^\top\beta+\varepsilon.\]
 
 Covariates accelerate or decelerate survival time rather than modifying hazards.
-
 A major advantage is that AFT models do not require proportional hazards.
 
 \subsection*{Cox Proportional Hazards Model}
 
 The Cox model is the most widely used survival model:
-
 \[h(t|X)=h_0(t)\exp(X^\top\beta).\]
-
 Here $h_0(t)$ is the baseline hazard and $\exp(X^\top\beta)$ represents relative risk.
 
-For two individuals,
-
-\[HR=\frac{h(t|X_1)}{h(t|X_2)}=\exp[(X_1-X_2)^\top\beta].\]
-
+For two individuals,\[HR=\frac{h(t|X_1)}{h(t|X_2)}=\exp[(X_1-X_2)^\top\beta].\]
 The hazard ratio measures relative instantaneous risk.
 
 \subsection*{Proportional Hazards Assumption}
 
-The key Cox assumption is that hazard ratios remain constant over time:
-
-\[HR(t)=HR.\]
-
-Equivalently,
-
-\[\frac{h_1(t)}{h_2(t)}=\text{constant}.\]
-
-Common signs of violation include crossing Kaplan--Meier curves, delayed treatment effects, and immunotherapy-type survival patterns.
-
-Common diagnostics include Schoenfeld residuals, log-minus-log plots, and time-varying coefficient models.
+The key Cox assumption is that hazard ratios remain constant over time: 
+\[HR(t)=HR \quad \text{ or } \quad \frac{h_1(t)}{h_2(t)}=\text{constant}\]
+Common signs of violation include crossing Kaplan--Meier curves, delayed treatment effects, and immunotherapy-type survival patterns. Common diagnostics include Schoenfeld residuals, log-minus-log plots, and time-varying coefficient models.
 
 \subsection*{Time-Varying Covariates}
 
 The Cox model can be extended to time-varying covariates:
-
 \[h(t)=h_0(t)\exp[X(t)^\top\beta].\]
-
 Examples include biomarker measurements, medication usage, and blood pressure.
 
 \subsection*{Restricted Mean Survival Time}
 
 Restricted Mean Survival Time (RMST) is a popular alternative to hazard ratios:
-
 \[RMST(\tau)=\int_0^\tau S(t)\,dt.\]
-
 RMST represents expected survival accumulated before time horizon $\tau$.
 
 A common treatment effect is
-
 \[\Delta_{RMST}=RMST_T-RMST_C.\]
-
 Unlike hazard ratios, RMST does not require proportional hazards and remains interpretable when survival curves cross.
 
 \subsection*{Competing Risks}
 
 Competing risks occur when multiple event types are possible and the occurrence of one event prevents another.
-
 Standard Kaplan--Meier methods may overestimate incidence in this setting.
-
 Common approaches include cause-specific hazard models and Fine--Gray models.
 
 \subsection*{Frailty Models}
 
 Frailty models introduce unobserved random effects:
-
 \[h(t|X,Z)=Zh_0(t)\exp(X^\top\beta),\]
-
 where $Z$ represents latent heterogeneity.
-
 These models account for unobserved differences in risk across individuals.
 
 \subsection*{Bayesian Survival Analysis}
@@ -2135,9 +2473,7 @@ The fundamental idea is that each study provides partial information about an un
 \subsection*{Why Meta-Analysis Exists}
 
 Individual studies often suffer from small sample sizes, limited power, conflicting conclusions, and population-specific results.
-
 Meta-analysis pools information across studies to reduce uncertainty.
-
 For example:
 
 \begin{center}
@@ -2154,20 +2490,14 @@ Each study alone is noisy. Meta-analysis combines them into a single estimate wi
 \subsection*{Basic Setup}
 
 Suppose there are $K$ studies. For study $k$, $\hat{\theta}_k$ denotes the estimated treatment effect. Examples include mean differences, odds ratios, risk ratios, hazard ratios, and RMST differences.
-
 Associated uncertainty is represented by $s_k^2$, where $s_k$ is the standard error of $\hat{\theta}_k$.
-
 The goal is to estimate $\theta$ using all studies simultaneously.
 
 \subsection*{Common Effect Measures}
 
 \subsubsection*{Mean Difference}
 
-For continuous outcomes:
-
-\[MD=\bar{Y}_T-\bar{Y}_C.\]
-
-Examples include blood pressure reduction, weight loss, and test scores.
+For continuous outcomes (blood pressure reduction, weight loss, and test scores): $MD=\bar{Y}_T-\bar{Y}_C$.
 
 \subsubsection*{Standardized Mean Difference}
 
@@ -2214,7 +2544,6 @@ The entire field of meta-analysis largely revolves around how these weights are 
 \subsection*{Why Weight Studies?}
 
 Not all studies provide equal information.
-
 For example:
 
 \begin{center}
@@ -2258,23 +2587,18 @@ Confidence intervals follow
 \subsection*{What is Heterogeneity?}
 
 A central question in meta-analysis is whether all studies are estimating the same effect.
-
 If all studies estimate the same treatment effect, then $\theta_1=\theta_2=\cdots=\theta_K$, and there is little heterogeneity.
-
 If effects vary, then $\theta_1\neq\theta_2\neq\cdots\neq\theta_K$, and there is heterogeneity.
 
 \subsection*{Sources of Heterogeneity}
 
 Differences may arise from patient populations, inclusion criteria, treatment protocols, follow-up durations, biomarker prevalence, and study quality.
-
 Heterogeneity is often the most important issue in practice.
 
 \subsection*{Cochran's Q Statistic}
 
 One measure of heterogeneity is
-
 \[Q=\sum_{k=1}^{K}w_k(\hat{\theta}_k-\hat{\theta}_{MA})^2.\]
-
 Large values indicate disagreement across studies, while small values indicate consistency.
 
 Under homogeneity:
@@ -2289,30 +2613,21 @@ A more interpretable measure is
 
 Common interpretations are 0--25\% as low heterogeneity, 25--50\% as moderate heterogeneity, 50--75\% as substantial heterogeneity, and 75\%+ as high heterogeneity.
 
-This statistic appears in almost every published meta-analysis.
-
 \subsection*{Forest Plots}
 
 The standard visualization is the forest plot.
-
 Each study contributes a point estimate and confidence interval. The pooled estimate is displayed at the bottom.
-
 Horizontal lines represent uncertainty, squares represent study estimates, and the diamond represents the pooled estimate.
-
-Forest plots are the most recognizable figure in meta-analysis.
 
 \subsection*{Publication Bias}
 
 Meta-analysis assumes observed studies represent all completed studies.
-
 In practice, positive studies are more likely to be published, while negative studies are more likely to remain unpublished. This creates publication bias.
 
 \subsection*{Funnel Plots}
 
 Publication bias is commonly assessed using a funnel plot.
-
 The plot places $\hat{\theta}_k$ against $SE(\hat{\theta}_k)$.
-
 Without bias, the plot appears symmetric. With bias, the plot becomes asymmetric.
 
 \subsection*{Aggregate Data vs Individual Participant Data}
@@ -2322,15 +2637,12 @@ Meta-analysis can be conducted using aggregate data or individual participant da
 \subsubsection*{Aggregate Data (AD)}
 
 Aggregate-data meta-analysis uses published summaries only, such as hazard ratios, odds ratios, and means.
-
 It is easy to obtain and computationally simple, but suffers from information loss and limited subgroup analysis.
 
 \subsubsection*{Individual Participant Data (IPD)}
 
 IPD meta-analysis uses original patient-level observations.
-
 It is more flexible, more powerful, and allows treatment-effect heterogeneity analysis, but is difficult to obtain and resource intensive.
-
 IPD meta-analysis is often considered the gold standard.
 
 \subsection*{Meta-Analysis for Survival Data}
@@ -2344,7 +2656,6 @@ The pooled hazard-ratio estimator is
 where $\hat{\beta}_k=\log(HR_k)$.
 
 Modern approaches increasingly use reconstructed survival curves, RMST, time-varying treatment effects, and Bayesian survival models.
-
 These methods relax proportional hazards assumptions.
 
 \section{Meta-Analysis Models}
@@ -2352,11 +2663,8 @@ These methods relax proportional hazards assumptions.
 \subsection*{Overview}
 
 The central goal of meta-analysis is to combine study-specific estimates $\hat{\theta}_1,\ldots,\hat{\theta}_K$ into a single summary estimate.
-
 Different meta-analysis models differ primarily in how they treat the underlying true study effects $\theta_1,\ldots,\theta_K$.
-
 The key question is whether all studies estimate the same treatment effect or whether the treatment effect varies across studies.
-
 This distinction leads to fixed-effect models, random-effects models, Bayesian meta-analysis, meta-regression, IPD meta-analysis frameworks, and survival-specific meta-analysis methods.
 
 \subsection*{Fixed-Effect Models}
@@ -2376,7 +2684,6 @@ All variability between studies is assumed to arise from sampling error. There i
 \subsubsection*{Interpretation}
 
 The fixed-effect estimator answers: what is the common treatment effect shared by all studies?
-
 This interpretation is only valid if all studies truly estimate the same effect.
 
 \subsubsection*{Estimator}
@@ -2404,7 +2711,6 @@ The model is simple, computationally efficient, and highly precise when homogene
 \subsubsection*{Motivation}
 
 Clinical studies often differ in patient populations, inclusion criteria, follow-up length, and treatment implementation.
-
 Therefore, $\theta_1,\ldots,\theta_K$ may not be identical. Random-effects models explicitly allow study-specific treatment effects.
 
 \subsubsection*{Hierarchical Model}
@@ -2425,14 +2731,10 @@ The model can be visualized as $\mu\rightarrow\theta_k\rightarrow\hat{\theta}_k$
 
 The pooled estimate answers: what is the average treatment effect across a population of studies?
 
-This differs fundamentally from the fixed-effect interpretation.
-
 \subsubsection*{Random-Effects Weights}
 
 Weights become
-
 \[w_k=\frac{1}{s_k^2+\tau^2}.\]
-
 Compared with fixed-effect models, large studies receive less dominance and small studies receive more weight.
 
 \subsubsection*{Estimating Heterogeneity}
@@ -2476,15 +2778,12 @@ Bayesian meta-analysis provides full uncertainty quantification, natural hierarc
 \subsubsection*{Posterior Inference}
 
 Posterior means such as $E(\mu|Data)$ often serve as pooled estimates.
-
 Posterior credible intervals replace confidence intervals. For example,
-
 \[P(\mu\in[a,b]|Data)=0.95.\]
 
 \subsubsection*{Shrinkage}
 
 A key feature is partial pooling. Extreme study estimates are shrunk toward $\mu$.
-
 The amount of shrinkage depends on study variance and heterogeneity.
 
 \subsection*{One-Stage vs Two-Stage Meta-Analysis}
@@ -2504,19 +2803,10 @@ This approach is easy to implement, computationally simple, and supported by sta
 \subsubsection*{One-Stage Meta-Analysis}
 
 One-stage meta-analysis analyzes all participant data simultaneously.
-
 A general form is
-
-\[Y_{ij}\sim f(\eta_{ij})\]
-
-with
-
-\[\eta_{ij}=\alpha_j+\beta_jT_{ij}+\gamma_jX_{ij},\]
-
+\[Y_{ij}\sim f(\eta_{ij})=f(\alpha_j+\beta_jT_{ij}+\gamma_jX_{ij})\]
 where $i$ indexes patients and $j$ indexes studies.
-
 Random effects model study variation.
-
 One-stage models are often more efficient, better for interaction modeling, better for missing data, and more flexible.
 
 \subsubsection*{Why One-Stage Matters}
@@ -2528,7 +2818,6 @@ Many treatment-effect heterogeneity analyses require treatment-by-covariate inte
 \subsubsection*{Motivation}
 
 Suppose studies differ systematically by mean age, biomarker prevalence, treatment duration, or study quality.
-
 Meta-regression attempts to explain heterogeneity using study-level covariates.
 
 \subsubsection*{Model}
@@ -2538,39 +2827,30 @@ A random-effects meta-regression can be written as
 \[\hat{\theta}_k=\beta_0+\beta_1z_k+u_k+\varepsilon_k,\]
 
 where $z_k$ is a study-level covariate and $u_k\sim N(0,\tau^2)$.
-
 The coefficient $\beta_1$ represents how the treatment effect changes as the study-level characteristic changes.
 
 \subsubsection*{Ecological Bias}
 
 A major limitation is ecological bias.
-
 Study-level relationships need not equal patient-level relationships:
-
 \[E(Y|X,\text{patient})\neq E(Y|\bar X,\text{study}).\]
-
 This is one major motivation for IPD meta-analysis.
 
 \subsection*{Survival Meta-Analysis}
 
 \subsubsection*{Traditional Approach}
 
-Historically, survival meta-analysis pools $\log(HR_k)$.
-
-Let $\hat{\beta}_k=\log(HR_k)$. Then
-
+Historically, survival meta-analysis pools $\log(HR_k)$. Let $\hat{\beta}_k=\log(HR_k)$. Then
 \[\hat{\beta}_{MA}=\frac{\sum_k w_k\hat{\beta}_k}{\sum_k w_k}.\]
 
 \subsubsection*{Limitation}
 
 Hazard ratios assume $HR(t)=HR$, which is the proportional hazards assumption.
-
 Violations occur when curves cross, delayed treatment effects exist, or immunotherapy effects emerge later.
 
 \subsubsection*{Modern Survival Meta-Analysis}
 
 Modern survival meta-analysis increasingly uses reconstructed IPD, Kaplan--Meier curves, RMST, and time-varying hazards.
-
 Examples include MARS, Bayesian survival meta-analysis, and piecewise exponential models.
 
 \subsubsection*{Restricted Mean Survival Time}
@@ -2580,7 +2860,6 @@ RMST is defined as
 \[RMST(\tau)=\int_0^\tau S(t)\,dt.\]
 
 It represents expected survival accumulated before time horizon $\tau$.
-
 The treatment effect is
 
 \[\Delta_{RMST}=RMST_T-RMST_C.\]
@@ -2592,7 +2871,6 @@ RMST requires no proportional hazards assumption, is clinically interpretable, a
 \subsection*{Overview}
 
 Extremal inference is a framework for statistical inference when the parameter of interest is not uniquely identified.
-
 Rather than estimating a single value $\theta$, the available data and assumptions only imply that the parameter lies within a feasible set $\Theta$.
 
 The goal becomes estimating $\Theta=[\theta_L,\theta_U]$ or, more generally,
@@ -2600,17 +2878,13 @@ The goal becomes estimating $\Theta=[\theta_L,\theta_U]$ or, more generally,
 \[\Theta=\{\theta:\theta \text{ is compatible with the observed data}\}.\]
 
 Instead of asking what the treatment effect is, extremal inference asks what the smallest and largest treatment effects are that remain consistent with the evidence.
-
 This framework appears throughout partial identification, missing-data problems, causal inference, sensitivity analysis, robust optimization, distributionally robust inference, and reconstruction uncertainty problems.
 
 \subsection*{Motivation}
 
 Classical statistical inference assumes that enough information exists to identify $\theta$. For example, one might estimate $\hat{\theta}=0.35$.
-
 However, many real-world problems are underdetermined. Multiple underlying data-generating processes may explain the same observations.
-
 Examples include missing covariates, missing outcomes, aggregate-data reconstruction, unobserved confounding, and subgroup assignment uncertainty.
-
 In these situations, the data do not imply a unique parameter. Instead, the data imply a set of plausible parameters.
 
 \subsection*{Identification vs Partial Identification}
@@ -2618,25 +2892,19 @@ In these situations, the data do not imply a unique parameter. Instead, the data
 \subsubsection*{Point Identification}
 
 A parameter is point identified if $\Theta=\{\theta\}$. Only one value is compatible with the observed data.
-
 Examples include linear regression coefficients, means of fully observed variables, and standard treatment effects in randomized trials.
 
 \subsubsection*{Partial Identification}
 
 A parameter is partially identified if $|\Theta|>1$. Many values satisfy the available evidence.
-
 The data only determine bounds:
-
 \[\theta_L\le\theta\le\theta_U.\]
-
 The focus shifts from estimation of a point to estimation of a region.
 
 \subsection*{Identification Regions}
 
 Suppose the parameter of interest is $\theta$. The identification region is
-
 \[\Theta=\{\theta:\theta \text{ is consistent with all observed constraints}\}.\]
-
 For one-dimensional parameters, $\Theta=[\theta_L,\theta_U]$, where
 
 \[\theta_L=\inf_{\theta\in\Theta}\theta,\qquad \theta_U=\sup_{\theta\in\Theta}\theta.\]
@@ -2646,20 +2914,9 @@ These are called the extremal values.
 \subsection*{Basic Example}
 
 Suppose $Y\in[0,1]$ and 20\% of observations are missing.
-
 Without additional assumptions, $0\le E(Y)\le1$.
-
 If the observed mean among observed subjects is 0.6, then the sharp bounds become
-
-\[0.8(0.6)+0.2(0)=0.48\]
-
-and
-
-\[0.8(0.6)+0.2(1)=0.68.\]
-
-Thus,
-
-\[0.48\le E(Y)\le0.68.\]
+\[0.8(0.6)+0.2(0)=0.48 \text{ and } 0.8(0.6)+0.2(1)=0.68\]
 
 The parameter is not identified, but the feasible region is.
 
@@ -2668,21 +2925,17 @@ The parameter is not identified, but the feasible region is.
 \subsubsection*{Sharp Bounds}
 
 Bounds are sharp if every point inside the interval can be attained by some data-generating process consistent with the assumptions.
-
 Formally, $\Theta=[\theta_L,\theta_U]$, and every value inside the interval is feasible.
-
 Sharp bounds contain exactly the information provided by the assumptions.
 
 \subsubsection*{Non-Sharp Bounds}
 
 Non-sharp bounds are wider than necessary and contain impossible values.
-
 Researchers generally seek sharp bounds whenever possible.
 
 \subsection*{Optimization View}
 
 Many extremal inference problems can be written as optimization problems.
-
 Suppose $\theta=g(X)$ subject to constraints $X\in\mathcal C$. Then
 
 \[\theta_L=\min_{X\in\mathcal C}g(X),\qquad \theta_U=\max_{X\in\mathcal C}g(X).\]
@@ -2692,57 +2945,38 @@ This perspective is especially important in reconstruction problems.
 \subsection*{Connection to Causal Inference}
 
 Many causal parameters are only partially identified.
-
 Suppose $Y(1)$ and $Y(0)$ are potential outcomes. The average treatment effect is
-
 \[ATE=E[Y(1)-Y(0)].\]
-
 Without randomization or strong assumptions, $ATE$ may not be point identified. Instead, $ATE\in[\tau_L,\tau_U]$.
-
 The resulting interval represents all causal effects compatible with the observed data.
 
 \subsection*{Sensitivity Analysis vs Extremal Inference}
 
 Sensitivity analysis studies how conclusions change under violations of assumptions.
-
 Extremal inference studies all possible values under a fixed set of assumptions.
-
 In sensitivity analysis, assumptions vary. In extremal inference, the parameter varies within the feasible set implied by fixed assumptions.
-
-The two approaches are closely related.
 
 \subsection*{Extremal Inference in Meta-Analysis}
 
 Meta-analysis typically assumes each study provides a unique effect estimate. However, reconstruction problems introduce additional uncertainty.
-
 Suppose $g$ denotes a reconstructed dataset. Then treatment effects become $\hat{\tau}(g)$.
-
 If multiple reconstructions $g_1,\ldots,g_M$ are feasible, then the effect estimate is no longer unique. Instead,
-
 \[\tau\in\{\hat{\tau}(g_1),\ldots,\hat{\tau}(g_M)\}.\]
-
 Extremal inference summarizes this uncertainty using
-
 \[\tau_L=\min_g\hat{\tau}(g),\qquad \tau_U=\max_g\hat{\tau}(g).\]
 
 \subsection*{Connection to MAPLE}
 
 In MAPLE, $G=\{g_1,\ldots,g_M\}$ represents a collection of subgroup label assignments consistent with published evidence.
-
 Traditional analyses choose one labeling.
-
 Extremal inference instead studies
-
 \[\min_{g\in G}\hat{\tau}(g)\qquad\text{and}\qquad\max_{g\in G}\hat{\tau}(g).\]
-
 These represent the least favorable and most favorable reconstructions with respect to the treatment effect.
-
 This is directly connected to current extensions of RESOLVE-IPD.
 
 \subsection*{Monte Carlo Approximation}
 
 In practice, $G$ may be extremely large, so enumerating every reconstruction is impossible.
-
 A common approximation is to sample $g_1,\ldots,g_B\sim G$ and compute $\hat{\tau}(g_1),\ldots,\hat{\tau}(g_B)$.
 
 Then approximate
@@ -2754,9 +2988,7 @@ The issue is that the true extremum may never be sampled. This becomes increasin
 \subsection*{Worst-Case and Best-Case Analysis}
 
 Extremal inference is often described as best-case and worst-case analysis.
-
 The best case is $\max\hat{\tau}$, and the worst case is $\min\hat{\tau}$.
-
 These provide robustness guarantees. If treatment remains beneficial even under the worst-case reconstruction, conclusions become more credible.
 
 \subsection*{Robust Optimization Connection}
@@ -2772,15 +3004,11 @@ Robust optimization instead considers
 \[\hat{\theta}=\arg\min_{\theta}\sup_{u\in\mathcal U}L(\theta,u),\]
 
 where $\mathcal U$ represents uncertainty.
-
 Similarly, extremal inference studies $\sup_{\theta\in\Theta}\theta$ and $\inf_{\theta\in\Theta}\theta$.
-
-Both frameworks focus on uncertainty sets rather than single models.
 
 \subsection*{Extremal Inference for Survival Analysis}
 
 Suppose $\tau(g)$ represents a survival estimand under reconstruction $g$.
-
 Possible estimands include hazard ratios, survival probabilities, RMST differences, and median survival differences.
 
 The extremal problem becomes
