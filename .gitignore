@@ -288,3 +288,6 @@ __pycache__/
 !*.jpg
 !*.jpeg
 !*.svg
+
+resolve-ipd/
+results/
