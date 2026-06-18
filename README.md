@@ -4,7 +4,7 @@ This repository contains research code for studying uncertainty in reconstructed
 
 Rather than treating a reconstructed dataset as a single fixed object, this project investigates the collection of all feasible patient-level datasets that satisfy published subgroup constraints and summary statistics. The central objective is to understand how treatment-effect estimates vary across the feasible reconstruction space and to develop methods for identifying both typical and extremal solutions.
 
-**Author:** Jonathan Ma
+**Author:** Jonathan Ma, Sijia Zhu
 
 ---
 
