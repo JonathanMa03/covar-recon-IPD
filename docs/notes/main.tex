@@ -2914,4 +2914,315 @@ The advantage of this approach is that TabDiff is designed to handle mixed-type 
 
 The limitation is that diffusion generation does not automatically guarantee exact satisfaction of published constraints. Therefore, TabDiff would likely need to be combined with constraint enforcement, such as rejection sampling, calibration, or optimization-based repair.
 
+\section{Meta Analysis for S(t) (MARS extension)}
+
+\subsection{Feasible Survival Bands}
+
+Classical MARS produces a single pooled survival estimate by combining reconstructed IPD from multiple studies. However, reconstruction is generally not unique. Multiple patient-level datasets may satisfy the same Kaplan-Meier curves, numbers-at-risk tables, and published subgroup summaries.
+
+A natural extension is to construct a \emph{feasible survival band} rather than a single pooled curve. The workflow sketch follows:
+
+\begin{enumerate}
+\item Obtain reconstructed approximate IPD for each study.
+\item Define reconstruction constraints by published summaries.
+\item Generate multiple feasible reconstructions for each study.
+\item Compute a pooled survival estimate for each feasible reconstruction.
+\item Construct pointwise lower and upper envelopes: $S_{L}(t)$ and $S_{U}(t)$
+\end{enumerate}
+
+The resulting band represents the range of pooled survival curves consistent with published information. This shifts the focus from obtaining a single reconstructed estimate to characterizing the collection of plausible survival trajectories.
+
+\paragraph{Two-Stage Feasible Band Procedure}
+
+A practical implementation is to use a two-stage procedure. The first stage estimates the distribution of feasible pooled survival curves using Monte Carlo reconstruction. The second stage uses constrained optimization to search for boundary curves that may be missed by random sampling.
+
+\subsubsection*{Stage 1: Feasible Distribution Estimation}
+
+Generate \(M\) feasible reconstruction sets. Each set contains one feasible reconstructed IPD dataset for every study in the meta-analysis.
+
+For reconstruction set \(m\), compute the study-level survival curves \(S^{(m)}_1(t),\ldots,S^{(m)}_K(t)\), then pool them using the MARS procedure to obtain \(S^{(m)}_{\text{pool}}(t)\).
+
+The resulting collection \(\{S^{(1)}_{\text{pool}}(t),\ldots,S^{(M)}_{\text{pool}}(t)\}\) estimates the feasible distribution of pooled survival curves induced by reconstruction uncertainty.
+
+Pointwise empirical summaries can be computed as \(Q_p(t)=\text{Quantile}_p\{S^{(1)}_{\text{pool}}(t),\ldots,S^{(M)}_{\text{pool}}(t)\}\), where \(p\in\{0.05,0.50,0.95\}\).
+
+\subsubsection*{Stage 2: Boundary Estimation}
+
+Monte Carlo samples may miss rare boundary reconstructions. Therefore, after estimating the central feasible distribution, run constrained optimization to identify lower and upper survival envelopes.
+
+For each clinically relevant time point \(t^\ast\), solve two optimization problems:
+
+\[
+S_L(t^\ast)=\min_{D\in\mathcal D} S_{\text{pool}}(t^\ast;D), \qquad S_U(t^\ast)=\max_{D\in\mathcal D} S_{\text{pool}}(t^\ast;D),
+\]
+
+where \(\mathcal D\) is the set of reconstructed datasets satisfying all published constraints.
+
+The optimization can be initialized from the lower-tail and upper-tail Monte Carlo reconstructions. Local moves modify reconstructed patient-level assignments while preserving numbers-at-risk, event counts, subgroup counts, and other published constraints. Candidate moves are accepted only if feasibility is preserved.
+
+\subsubsection*{Algorithm Sketch}
+
+\begin{enumerate}
+\item Input reconstructed IPD candidates, published constraints, and a time grid \(\mathcal T=\{t_1,\ldots,t_J\}\).
+\item Generate \(M\) feasible reconstruction sets \(D^{(1)},\ldots,D^{(M)}\).
+\item For each \(m\), compute the pooled MARS survival curve \(S^{(m)}_{\text{pool}}(t)\).
+\item Estimate the central feasible distribution using empirical quantiles \(Q_p(t)\).
+\item For each \(t_j\in\mathcal T\), select lower-tail and upper-tail Monte Carlo reconstructions as optimization starting points.
+\item Run constrained minimization of \(S_{\text{pool}}(t_j)\) to estimate \(S_L(t_j)\).
+\item Run constrained maximization of \(S_{\text{pool}}(t_j)\) to estimate \(S_U(t_j)\).
+\item Repeat across all \(t_j\in\mathcal T\).
+\item Return the median feasible curve \(Q_{0.50}(t)\), empirical uncertainty bands \(Q_{0.05}(t),Q_{0.95}(t)\), and optimized feasible envelope \([S_L(t),S_U(t)]\).
+\end{enumerate}
+
+This separates two goals: Monte Carlo reconstruction describes the typical feasible survival behavior, while constrained optimization estimates the most optimistic and pessimistic pooled survival curves still compatible with the published evidence.
+\subsubsection*{Tail-Enriched Feasible Sampling}
+
+Instead of using constrained optimization only to find endpoints, we can use a tail-enriched sampling strategy. The goal is to preserve the Monte Carlo estimate of the central feasible distribution while adding targeted exploration of rare lower-tail and upper-tail reconstructions.
+
+The procedure begins with an ordinary Monte Carlo sample \(D^{(1)},\ldots,D^{(M)}\), producing pooled curves \(S^{(1)}_{\text{pool}}(t),\ldots,S^{(M)}_{\text{pool}}(t)\). These samples define the central feasible distribution.
+
+Next, select reconstructions from the lower and upper empirical tails. For a fixed time point \(t^\ast\), define lower-tail seeds as reconstructions with \(S_{\text{pool}}(t^\ast)\le Q_{0.05}(t^\ast)\) and upper-tail seeds as reconstructions with \(S_{\text{pool}}(t^\ast)\ge Q_{0.95}(t^\ast)\).
+
+From these seeds, run constraint-preserving local sampling chains. Moves are allowed only if they preserve the published reconstruction constraints. The acceptance rule is tilted toward the target tail. For lower-tail exploration, moves decreasing \(S_{\text{pool}}(t^\ast)\) are favored. For upper-tail exploration, moves increasing \(S_{\text{pool}}(t^\ast)\) are favored.
+
+The final output keeps two objects separate:
+
+\begin{itemize}
+\item the ordinary Monte Carlo distribution, used to describe the central feasible region;
+\item the tail-enriched sample, used to describe rare feasible boundary behavior.
+\end{itemize}
+
+This avoids distorting the central distribution while still improving exploration of low-probability feasible tails.
+
+\subsection{Bayesian Reconstruction Meta Analysis}
+
+Reconstruction uncertainty can be represented probabilistically. In this framework, each feasible reconstruction is viewed as a draw from a posterior distribution over patient-level datasets.
+
+The workflow would proceed as follows:
+
+\begin{enumerate}
+\item Generate a large collection of feasible reconstructions.
+\item Compute pooled survival estimates for each sample.
+\item Aggregate the resulting collection of survival curves.
+\end{enumerate}
+
+The primary object of interest becomes a posterior distribution over survival functions,
+
+\[
+\{S^{(1)}(t), \ldots, S^{(M)}(t)\}.
+\]
+
+From this collection one can obtain posterior means, pointwise credible intervals, median survival distributions, or other functionals of interest.
+
+\subsubsection*{Bayesian Bootstrap Specification}
+
+A simple probabilistic version can be built from the reconstructed study-level survival curves without specifying a full parametric survival model.
+
+Suppose study \(k\) has feasible reconstructed survival curves \(S_{k}^{(1)}(t),\ldots,S_{k}^{(M_k)}(t)\). Instead of assigning equal weight to every reconstruction, draw Bayesian bootstrap weights
+
+\[\omega_{k}^{(1)},\ldots,\omega_{k}^{(M_k)}\sim Dirichlet(1,\ldots,1).\]
+
+For each posterior draw \(b\), sample or weight one feasible reconstruction from each study, then compute the pooled curve
+
+\[S_{\text{pool}}^{(b)}(t)=\sum_{k=1}^{K}v_k^{(b)}S_k^{(b)}(t),\]
+
+where \(v_k^{(b)}\) are study-level pooling weights, such as inverse-variance weights, sample-size weights, or Bayesian bootstrap weights over studies.
+
+The procedure is:
+
+\begin{enumerate}
+\item Generate feasible reconstructions for each study.
+\item Draw reconstruction-level Bayesian bootstrap weights within each study.
+\item Draw study-level Bayesian bootstrap weights across studies.
+\item Compute a pooled survival curve for each posterior draw.
+\item Summarize \(\{S_{\text{pool}}^{(1)}(t),\ldots,S_{\text{pool}}^{(B)}(t)\}\) using posterior means and pointwise credible bands.
+\end{enumerate}
+
+This approach treats uncertainty as arising from two sources: uncertainty over feasible reconstructions within each study and uncertainty over how studies contribute to the pooled curve.
+
+\subsubsection*{Hierarchical Bayesian Specification}
+
+A more structured model treats each study survival curve as a noisy realization of an underlying pooled survival function.
+
+Represent each reconstructed survival curve on a common time grid \(\mathcal T=\{t_1,\ldots,t_J\}\). Let \(Y_{kj}^{(m)}\) denote a transformed survival estimate from study \(k\), reconstruction \(m\), at time \(t_j\). A useful transformation is the complementary log-log scale,
+
+\[Y_{kj}^{(m)}=\log\{-\log S_k^{(m)}(t_j)\},\]
+
+which maps survival probabilities from \((0,1)\) to the real line.
+
+A hierarchical model can be specified as
+
+\[Y_{kj}^{(m)}=\mu_j+b_{kj}+\epsilon_{kj}^{(m)},\]
+
+where \(\mu_j\) is the pooled survival trajectory on the transformed scale, \(b_{kj}\) is a study-specific deviation, and \(\epsilon_{kj}^{(m)}\) captures reconstruction-level variation.
+
+One possible prior structure is
+
+\[b_{kj}\sim N(0,\tau_j^2),\qquad \epsilon_{kj}^{(m)}\sim N(0,\sigma_{kj}^2),\]
+
+with smoothness priors imposed on \(\mu_j\), such as a random-walk prior,
+
+\[\mu_j\sim N(\mu_{j-1},\eta^2).\]
+
+After posterior sampling, transform back to the survival scale using
+
+\[S_{\text{pool}}(t_j)=\exp\{-\exp(\mu_j)\}.\]
+
+The procedure is:
+
+\begin{enumerate}
+\item Generate multiple feasible reconstructions for each study.
+\item Evaluate each reconstructed survival curve on a common time grid.
+\item Transform survival probabilities to the complementary log-log scale.
+\item Fit a hierarchical model with study-level and reconstruction-level variation.
+\item Transform posterior draws of \(\mu_j\) back to obtain posterior pooled survival curves.
+\item Summarize posterior survival trajectories using means, credible bands, and derived quantities such as median survival or RMST.
+\end{enumerate}
+
+This model separates pooled survival behavior, between-study heterogeneity, and within-study reconstruction uncertainty.
+
+\subsection{Functional Meta Analysis of Entire Curves}
+
+Most survival meta-analyses reduce each study to a low-dimensional summary such as a HR, median survival time, or RMST. An alternative approach is to treat each reconstructed survival curve as a functional observation.
+
+Under this perspective, the observed data become
+
+\[
+S_1(t), S_2(t), \ldots, S_K(t),
+\]
+
+where each study contributes an entire survival trajectory rather than a single scalar summary.
+
+A potential workflow is:
+
+\begin{enumerate}
+\item Reconstruct survival curves for all studies.
+\item Represent curves on a common time grid.
+\item Treat each survival curve as a functional observation.
+\item Learn common patterns across studies.
+\item Construct pooled functional survival estimates.
+\end{enumerate}
+
+\subsubsection*{Functional Principal Component Analysis}
+
+Functional principal component analysis (FPCA) provides a dimension reduction framework for collections of survival curves. After reconstructing study-level survival functions and evaluating them on a common time grid, each study contributes a functional observation \(S_k(t)\).
+
+The first step is to estimate the mean survival curve,
+
+\[
+\mu(t)=\frac{1}{K}\sum_{k=1}^{K}S_k(t),
+\]
+
+and then decompose the residual variation around the mean into orthogonal modes of variation:
+
+\[
+S_k(t)=\mu(t)+\sum_{r=1}^{R}\xi_{kr}\phi_r(t).
+\]
+
+Here, \(\phi_r(t)\) denotes the \(r\)-th functional principal component and \(\xi_{kr}\) is the corresponding score for study \(k\).
+
+The resulting components provide an interpretable representation of how survival trajectories differ across studies. For example, one component may represent early mortality differences, while another captures long-term survivor effects. The corresponding scores can be used to visualize study similarities, identify outlying studies, and quantify dominant sources of variation within the literature.
+
+A possible workflow is:
+
+\begin{enumerate}
+\item Reconstruct study-level survival curves.
+\item Evaluate all curves on a common time grid.
+\item Estimate the mean survival function.
+\item Compute functional principal components.
+\item Analyze component scores and explained variance.
+\item Reconstruct pooled or representative survival trajectories using a small number of principal components.
+\end{enumerate}
+
+Rather than producing only a pooled survival estimate, FPCA provides a low-dimensional representation of the major survival patterns observed across studies.
+
+\subsubsection*{Functional Mixed-Effects Models}
+
+A second approach is to explicitly model study-level variation using functional random effects. Rather than assuming that all studies arise from a single common survival trajectory, each study is allowed to deviate from a pooled mean function.
+
+One possible specification is
+
+\[
+S_k(t)=\mu(t)+b_k(t)+\epsilon_k(t),
+\]
+
+where \(\mu(t)\) represents the pooled survival trajectory, \(b_k(t)\) is a study-specific functional random effect, and \(\epsilon_k(t)\) represents residual variation.
+
+The pooled function captures the average survival behavior across studies, while the random effects quantify between-study heterogeneity throughout the follow-up period. Unlike traditional random-effects meta-analysis, heterogeneity is modeled as a function of time rather than a single scalar quantity.
+
+The workflow would proceed as follows:
+
+\begin{enumerate}
+\item Reconstruct study-level survival curves.
+\item Represent curves on a common time grid.
+\item Estimate a pooled mean survival function.
+\item Fit study-specific functional random effects.
+\item Quantify heterogeneity across follow-up.
+\item Construct pooled survival estimates together with study-level deviations.
+\end{enumerate}
+
+An important output is a time-varying characterization of heterogeneity. Some regions of the survival curve may exhibit strong agreement across studies, while others may show substantial divergence. Consequently, functional mixed-effects models provide a direct framework for studying when and where survival behavior differs throughout follow-up.
+
+\subsection{Survival Curve Heterogeneity Maps}
+
+Traditional meta-analysis often summarizes between-study heterogeneity using a single statistic such as $I^2$. However, disagreement between studies is unlikely to remain constant over the entire follow-up period. Studies may exhibit strong agreement at early time points while diverging substantially at later horizons due to differences in patient populations, follow-up duration, treatment mechanisms, or censoring patterns.
+
+A natural extension of MARS is to estimate heterogeneity as a function of time rather than as a single scalar quantity. The workflow would proceed as follows:
+
+\begin{enumerate}
+\item Reconstruct study-level survival curves.
+\item Estimate a pooled survival function using MARS.
+\item Compute between-study variability at each time point.
+\item Construct a time-varying heterogeneity measure:
+\begin{itemize}
+\item variance of $S(t)$,
+\item standard deviation of $S(t)$,
+\item functional analogues of $I^2$.
+\end{itemize}
+\item Visualize heterogeneity as a function of time.
+\end{enumerate}
+
+The primary output is a heterogeneity map showing where studies exhibit strong agreement and where substantial disagreement emerges. Such maps may reveal that treatment effects are highly consistent during early follow-up but become increasingly heterogeneous among long-term survivors. This framework shifts the focus from estimating a single pooled survival curve toward understanding how agreement between studies evolves throughout the survival trajectory.
+
+\subsection{Change-Point MARS}
+
+Many survival curves exhibit distinct phases of behavior. Examples include rapid early mortality followed by stabilization, delayed treatment benefits due to immunotherapy, or long-term survivor effects that emerge only after extended follow-up. Standard meta-analysis typically ignores these transitions and treats the entire survival trajectory as a single object.
+
+A change-point extension of MARS would explicitly identify locations where survival behavior changes. The workflow would proceed as follows:
+
+\begin{enumerate}
+\item Reconstruct survival curves for all studies.
+\item Estimate study-specific change points using segmented survival models or piecewise hazard models.
+\item Identify common change-point locations across studies.
+\item Partition survival trajectories into distinct temporal phases.
+\item Perform separate pooling within each phase.
+\end{enumerate}
+
+Potential change points include:
+
+\begin{itemize}
+\item onset of treatment benefit,
+\item transition to long-term survivor populations,
+\item periods of increased mortality,
+\item regions where survival curves begin to separate.
+\end{itemize}
+
+The resulting meta-analysis would characterize not only the pooled survival function but also the temporal structure of treatment response. Rather than viewing survival as a single continuous process, the framework identifies clinically meaningful stages where the underlying dynamics may change substantially across studies.
+
+\subsection{Multi-Agent Consensus Reconstruction}
+
+Many reconstruction choices involve ambiguity, including curve digitization, coordinate extraction, and handling incomplete reporting. Instead of relying on a single reconstruction, multiple agents can independently generate candidate reconstructions.
+
+The workflow would proceed as follows:
+
+\begin{enumerate}
+\item Multiple agents reconstruct the same study.
+\item Each agent produces reconstructed IPD and survival estimates.
+\item Agreement between agents is assessed.
+\item Consensus reconstructions are formed through aggregation procedures.
+\item Meta-analysis is performed using consensus outputs.
+\end{enumerate}
+
+This approach is analogous to ensemble learning and may improve robustness when published information is incomplete or ambiguous.
+
 \end{document}
